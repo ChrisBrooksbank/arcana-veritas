@@ -1,0 +1,91 @@
+# Arcana Veritas
+
+**A traditional tarot companion for spiritual insight, symbolic learning, and private reflection.**
+
+Live app: [https://arcana-veritas-20260615164633.netlify.app](https://arcana-veritas-20260615164633.netlify.app)
+
+Arcana Veritas is a free, installable tarot PWA built around historical deck traditions rather than novelty fortune-telling. It supports quick readings, authored interpretations, tarot learning, and a private local journal.
+
+## The Vibe
+
+Mystic, but rooted in tradition.
+
+The app is designed to feel like opening an old deck at a quiet table: warm, respectful, symbolic, and focused on the cards themselves. The Rider-Waite-Smith deck uses historical scan artwork, and the experience is intentionally free of ads, login walls, and AI-generated readings.
+
+## Features
+
+- Installable Progressive Web App
+- Rider-Waite-Smith deck with historical scan artwork
+- Tarot de Marseille study deck treatment
+- One-card daily reading
+- Three-card Past / Present / Future spread
+- Situation / Action / Outcome spread
+- Yes / No / Maybe reflective spread
+- Selectable reading styles:
+  - Traditional
+  - Reflective
+  - Spiritual Guidance
+  - Practical
+- Fixed authored interpretations
+- Full 78-card library
+- Symbolism deep dives
+- Short tarot lessons
+- Private local journal
+- Mood tags and categories
+- Journal import/export
+- Offline-capable app shell
+
+## Artwork
+
+The Rider-Waite-Smith deck uses public-domain historical scan artwork from the Pamela Colman Smith / A. E. Waite 1909 tarot tradition, loaded through Wikimedia Commons `Special:FilePath` image URLs.
+
+The Tarot de Marseille deck currently uses an app-generated study treatment while a complete, clean, historically sourced Marseille scan set is selected.
+
+## Philosophy
+
+Arcana Veritas treats tarot as a symbolic and spiritual practice. It is not medical, legal, financial, or crisis advice. The readings are written to support reflection, learning, and discernment rather than certainty or fear.
+
+## Tech
+
+This is a small static PWA:
+
+- HTML
+- CSS
+- Vanilla JavaScript
+- Web app manifest
+- Service worker
+- Netlify static deploy
+
+No framework, no build step, no account system.
+
+## Local Development
+
+Run a local static server from the project folder:
+
+```powershell
+python -m http.server 5173 --bind 127.0.0.1
+```
+
+Then open:
+
+```text
+http://127.0.0.1:5173/
+```
+
+## Deployment
+
+The live site is deployed on Netlify:
+
+[https://arcana-veritas-20260615164633.netlify.app](https://arcana-veritas-20260615164633.netlify.app)
+
+Netlify uses [netlify.toml](./netlify.toml) and publishes the repository root as a static site.
+
+## Roadmap
+
+- Add a complete historical Tarot de Marseille scan deck
+- Improve deck source/provenance metadata in the UI
+- Add richer card-specific symbolism lessons
+- Add optional card pattern insights from the private journal
+- Add a high-contrast accessibility deck
+- Add an original gothic/occult/fantasy deck after the historical foundation is solid
+

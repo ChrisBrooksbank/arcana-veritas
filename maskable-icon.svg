@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#17120f"/>
+  <circle cx="256" cy="256" r="190" fill="#2b221c" stroke="#d9b66d" stroke-width="12"/>
+  <path d="M256 94 292 220 424 256 292 292 256 418 220 292 88 256 220 220Z" fill="#d9b66d"/>
+  <circle cx="256" cy="256" r="74" fill="#17120f" stroke="#f6ebd2" stroke-width="8"/>
+  <text x="256" y="276" text-anchor="middle" font-family="Georgia, serif" font-size="76" fill="#f6ebd2">AV</text>
+</svg>

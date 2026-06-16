@@ -1,0 +1,25 @@
+{
+  "name": "Arcana Veritas",
+  "short_name": "Arcana",
+  "description": "A traditional tarot companion for spiritual insight, symbolic learning, and private reflection.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#17120f",
+  "theme_color": "#17120f",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/maskable-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}
