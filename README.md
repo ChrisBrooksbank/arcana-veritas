@@ -16,7 +16,9 @@ The app is designed to feel like opening an old deck at a quiet table: warm, res
 
 - Installable Progressive Web App
 - Rider-Waite-Smith deck with historical scan artwork
-- Tarot de Marseille study deck treatment
+- Tarot de Marseille deck with Jean Dodal historical trump scans where available
+- High-contrast accessibility study deck
+- Arcana Noctis gothic/occult/fantasy study deck
 - One-card daily reading
 - Three-card Past / Present / Future spread
 - Situation / Action / Outcome spread
@@ -29,8 +31,10 @@ The app is designed to feel like opening an old deck at a quiet table: warm, res
 - Fixed authored interpretations
 - Full 78-card library
 - Symbolism deep dives
+- Card-specific deep-dive notes
 - Short tarot lessons
 - Private local journal
+- Pattern insights from saved readings
 - Mood tags and categories
 - Journal import/export
 - Offline-capable app shell
@@ -39,7 +43,9 @@ The app is designed to feel like opening an old deck at a quiet table: warm, res
 
 The Rider-Waite-Smith deck uses public-domain historical scan artwork from the Pamela Colman Smith / A. E. Waite 1909 tarot tradition, loaded through Wikimedia Commons `Special:FilePath` image URLs.
 
-The Tarot de Marseille deck currently uses an app-generated study treatment while a complete, clean, historically sourced Marseille scan set is selected.
+The Tarot de Marseille deck uses Jean Dodal historical scan support for known trump filenames and a generated Marseille study fallback where complete scan coverage is not yet available through stable public URLs.
+
+The High-Contrast Study and Arcana Noctis decks are app-generated study treatments, intentionally labeled separately from historical scan decks.
 
 ## Philosophy
 
@@ -80,12 +86,11 @@ The live site is deployed on Netlify:
 
 Netlify uses [netlify.toml](./netlify.toml) and publishes the repository root as a static site.
 
-## Roadmap
+## Roadmap Status
 
-- Add a complete historical Tarot de Marseille scan deck
-- Improve deck source/provenance metadata in the UI
-- Add richer card-specific symbolism lessons
-- Add optional card pattern insights from the private journal
-- Add a high-contrast accessibility deck
-- Add an original gothic/occult/fantasy deck after the historical foundation is solid
-
+- Complete historical Tarot de Marseille scan deck: partially implemented with Jean Dodal trump scans and generated fallback for missing stable public URLs.
+- Deck source/provenance metadata in the UI: implemented.
+- Richer card-specific symbolism lessons: implemented with card detail deep dives.
+- Optional card pattern insights from the private journal: implemented locally.
+- High-contrast accessibility deck: implemented.
+- Original gothic/occult/fantasy deck: implemented as Arcana Noctis, an app-generated study deck.

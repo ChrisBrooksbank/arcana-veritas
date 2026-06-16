@@ -389,6 +389,37 @@ textarea {
   line-height: 1.45;
 }
 
+.provenance-card {
+  position: relative;
+  margin-top: 14px;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.provenance-card summary {
+  cursor: pointer;
+  color: var(--gold);
+}
+
+.provenance-card dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 7px 12px;
+  margin: 10px 0 0;
+}
+
+.provenance-card dt {
+  color: var(--dim);
+}
+
+.provenance-card dd {
+  margin: 0;
+}
+
+.provenance-card a {
+  color: var(--gold);
+}
+
 .reading-result {
   margin-top: 22px;
 }
@@ -510,6 +541,70 @@ textarea {
     linear-gradient(110deg, rgba(201, 72, 63, 0.08), transparent 35%, rgba(63, 128, 168, 0.08)),
     #ead9ad;
   color: #1f1a14;
+}
+
+.tarot-card[data-deck="contrast"] .card-art {
+  background: #fff;
+  color: #000;
+  border: 4px solid #000;
+  box-shadow: inset 0 0 0 8px #ffd400, 0 12px 24px rgba(0, 0, 0, 0.35);
+}
+
+.tarot-card[data-deck="contrast"] .card-art-inner,
+.tarot-card[data-deck="contrast"] .card-title-ribbon,
+.tarot-card[data-deck="contrast"] .card-footer,
+.tarot-card[data-deck="contrast"] .card-illustration,
+.tarot-card[data-deck="contrast"] .pip,
+.tarot-card[data-deck="contrast"] .figure-body,
+.tarot-card[data-deck="contrast"] .court-robe {
+  background: #fff;
+  color: #000;
+  border-color: #000;
+}
+
+.tarot-card[data-deck="contrast"] .scene-sky,
+.tarot-card[data-deck="contrast"] .pip,
+.tarot-card[data-deck="contrast"] .court-crown {
+  color: #000;
+  background: #ffd400;
+  box-shadow: none;
+}
+
+.tarot-card[data-deck="noctis"] .card-art {
+  background:
+    radial-gradient(circle at 50% 22%, rgba(216, 177, 94, 0.26), transparent 24%),
+    radial-gradient(circle at 18% 82%, rgba(104, 58, 135, 0.38), transparent 22%),
+    linear-gradient(160deg, #120914, #24102e 52%, #09060b);
+  color: #f5ead2;
+  border-color: rgba(216, 177, 94, 0.58);
+  box-shadow:
+    inset 0 0 0 7px rgba(216, 177, 94, 0.12),
+    inset 0 0 45px rgba(0, 0, 0, 0.72),
+    0 16px 36px rgba(0, 0, 0, 0.5);
+}
+
+.tarot-card[data-deck="noctis"] .card-art-inner,
+.tarot-card[data-deck="noctis"] .card-title-ribbon,
+.tarot-card[data-deck="noctis"] .card-footer,
+.tarot-card[data-deck="noctis"] .card-illustration {
+  color: #f5ead2;
+  background: rgba(18, 9, 20, 0.68);
+  border-color: rgba(216, 177, 94, 0.42);
+}
+
+.tarot-card[data-deck="noctis"] .card-corner,
+.tarot-card[data-deck="noctis"] .scene-sky,
+.tarot-card[data-deck="noctis"] .pip {
+  color: #120914;
+  background: #d8b15e;
+  border-color: #f5ead2;
+}
+
+.tarot-card[data-deck="noctis"] .figure-body,
+.tarot-card[data-deck="noctis"] .court-robe {
+  background:
+    repeating-linear-gradient(135deg, rgba(245, 234, 210, 0.08) 0 5px, transparent 5px 13px),
+    #46205f;
 }
 
 .card-art-inner {
@@ -1111,6 +1206,48 @@ textarea {
 
 .journal-filters {
   margin-bottom: 14px;
+}
+
+.insights-panel {
+  margin-bottom: 16px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(43, 34, 28, 0.78);
+}
+
+.insights-panel h3 {
+  margin-top: 6px;
+}
+
+.insights-panel p {
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.insight-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.insight-card {
+  display: grid;
+  gap: 5px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(0, 0, 0, 0.14);
+}
+
+.insight-card span {
+  color: var(--dim);
+  font-size: 0.78rem;
+}
+
+.insight-card strong {
+  color: var(--ink);
 }
 
 .card-dialog {

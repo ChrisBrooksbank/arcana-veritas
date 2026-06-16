@@ -1,4 +1,4 @@
-const CACHE_NAME = "arcana-veritas-v4";
+const CACHE_NAME = "arcana-veritas-v5";
 const APP_SHELL = [
   "/",
   "/index.html",

@@ -7,13 +7,47 @@ const decks = [
       "Pamela Colman Smith's illustrated 1909 deck, using public-domain historical scan artwork.",
     source:
       "Artwork: Pamela Colman Smith / A. E. Waite, 1909. Public-domain scans via Wikimedia Commons and Sacred Texts/Holly Voley provenance notes.",
+    artist: "Pamela Colman Smith",
+    year: "1909",
+    license: "Public domain in the US and UK; verify jurisdiction for reuse.",
+    sourceUrl: "https://commons.wikimedia.org/wiki/Category:Rider-Waite_tarot_deck",
   },
   {
     id: "marseille",
     name: "Tarot de Marseille",
     system: "marseille",
     description:
-      "Historic, geometric, and more austere; excellent for learning suit, number, and archetype.",
+      "Historic Jean Dodal-inspired Marseille system, geometric and more austere for learning suit, number, and archetype.",
+    source:
+      "Artwork: Jean Dodal Tarot de Marseille, Lyon, ca. 1701-1715. Historical scan support is used where Commons filenames are available; generated study fallback remains for missing cards.",
+    artist: "Jean Dodal",
+    year: "ca. 1701-1715",
+    license: "Public domain historical work; individual hosted files retain their own source metadata.",
+    sourceUrl: "https://commons.wikimedia.org/wiki/Category:Tarot_de_Marseille_-_Jean_Dodal",
+  },
+  {
+    id: "contrast",
+    name: "High-Contrast Study",
+    system: "accessibility",
+    description:
+      "A stark accessibility deck with large labels, strong outlines, and simplified symbolism for low-vision study.",
+    source: "Original app-generated accessibility deck treatment for Arcana Veritas.",
+    artist: "Arcana Veritas system",
+    year: "2026",
+    license: "Generated study artwork; no historical artwork claim.",
+    sourceUrl: "https://github.com/ChrisBrooksbank/arcana-veritas",
+  },
+  {
+    id: "noctis",
+    name: "Arcana Noctis",
+    system: "gothic",
+    description:
+      "A gothic occult/fantasy study deck: moonlit frames, sigils, and symbolic figures mapped to traditional meanings.",
+    source: "Original app-generated gothic/occult/fantasy study deck treatment for Arcana Veritas.",
+    artist: "Arcana Veritas system",
+    year: "2026",
+    license: "Generated study artwork; intentionally separate from historical scan decks.",
+    sourceUrl: "https://github.com/ChrisBrooksbank/arcana-veritas",
   },
 ];
 
@@ -124,6 +158,31 @@ const deepDives = [
   },
 ];
 
+const symbolismByKeyword = {
+  threshold: "Thresholds, cliffs, roads, and open air point to trust at the edge of the known.",
+  will: "Tools on the table, raised hands, and flowering growth show intention brought into form.",
+  mystery: "Veils, moons, books, and water mark hidden knowledge and receptive attention.",
+  abundance: "Gardens, grain, robes, and stars point to embodiment, fertility, and creative shelter.",
+  order: "Thrones, stone, mountains, and crowns show structure, law, and protective boundary.",
+  tradition: "Keys, hands, pillars, and ritual figures show transmission through lineage and teaching.",
+  union: "Paired figures, angelic witness, and divided paths make choice visible.",
+  victory: "Vehicles, reins, armor, and city walls point to discipline directing opposing forces.",
+  courage: "Lion, hand, garland, and calm posture show strength as relationship rather than force.",
+  solitude: "Lantern, staff, cloak, and height show wisdom gathered through retreat.",
+  cycle: "Wheel, creatures, clouds, and letters mark change beyond personal control.",
+  balance: "Scales, sword, pillars, and square posture show truth, measure, and consequence.",
+  surrender: "Suspension, halo, bound legs, and the tree show voluntary pause and altered seeing.",
+  ending: "Banner, horse, river, and sunrise show transformation rather than annihilation.",
+  alchemy: "Two cups, flowing water, wings, and path show moderation as sacred mixture.",
+  bondage: "Chains, torch, and shadowed figures ask what is chosen, feared, or compulsive.",
+  rupture: "Lightning, falling figures, and broken crown show truth striking false structures.",
+  hope: "Stars, flowing water, and nakedness show renewal after exposure.",
+  dream: "Moon, dogs, towers, water, and path mark uncertainty, instinct, and dream logic.",
+  clarity: "Sun, child, wall, and flowers point to vitality, visibility, and simple joy.",
+  calling: "Trumpet, rising figures, and water show awakening and the summons to answer.",
+  completion: "Wreath, dancer, and four living emblems show integration and arrival.",
+};
+
 const majors = [
   ["fool", "The Fool", "0", "threshold", "A beginning, trust, sacred risk", "Naivety, hesitation, scattered trust", "✦"],
   ["magician", "The Magician", "I", "will", "Skill, intention, focused power", "Manipulation, unused ability", "☿"],
@@ -184,7 +243,8 @@ const cards = [
     upright,
     reversed,
     glyph,
-    symbol:
+      symbol:
+      symbolismByKeyword[keyword] ||
       "A major archetype in the soul's procession, read through image, threshold, ordeal, and integration.",
   })),
   ...suitDefs.flatMap(([suitId, suitName, element, theme, material, glyph]) =>
@@ -201,6 +261,7 @@ const cards = [
       glyph,
       element,
       symbol: `${suitName} belong to ${element}; they teach through ${theme} and ${material}.`,
+      deepSymbol: `${rankName} carries the number-symbol of ${keyword}; ${suitName.toLowerCase()} carry ${element.toLowerCase()} and ${material}.`,
     })),
   ),
 ];
@@ -284,7 +345,13 @@ function renderDeckStage() {
   const deck = getDeck();
   $("#deckName").textContent = deck.name;
   $("#deckCopy").textContent = deck.description;
-  $("#deckCredit").textContent = deck.source || "Marseille deck uses an app-generated study treatment while a complete historical scan set is sourced.";
+  $("#deckCredit").textContent = deck.source;
+  $("#deckProvenance").innerHTML = `
+    <dt>Artist/source</dt><dd>${escapeHtml(deck.artist)}</dd>
+    <dt>Date</dt><dd>${escapeHtml(deck.year)}</dd>
+    <dt>License</dt><dd>${escapeHtml(deck.license)}</dd>
+    <dt>Reference</dt><dd><a href="${escapeHtml(deck.sourceUrl)}" target="_blank" rel="noreferrer">Open source notes</a></dd>
+  `;
   document.body.dataset.deck = deck.id;
 }
 
@@ -416,10 +483,39 @@ function renderCard(card, deckId = state.deckId, reversed = false) {
 }
 
 function getHistoricalImageUrl(card, deckId) {
-  if (deckId !== "rws") return "";
-  const fileName = getRwsCommonsFileName(card);
+  const fileName = deckId === "rws" ? getRwsCommonsFileName(card) : getMarseilleCommonsFileName(card, deckId);
   if (!fileName) return "";
   return `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(fileName)}?width=700`;
+}
+
+function getMarseilleCommonsFileName(card, deckId) {
+  if (deckId !== "marseille" || card.arcana !== "major") return "";
+  const majorNumbers = {
+    fool: "00",
+    magician: "01",
+    priestess: "02",
+    empress: "03",
+    emperor: "04",
+    hierophant: "05",
+    lovers: "06",
+    chariot: "07",
+    justice: "08",
+    hermit: "09",
+    wheel: "10",
+    strength: "11",
+    hanged: "12",
+    death: "13",
+    temperance: "14",
+    devil: "15",
+    tower: "16",
+    star: "17",
+    moon: "18",
+    sun: "19",
+    judgement: "20",
+    world: "21",
+  };
+  const number = majorNumbers[card.id];
+  return number ? `Jean Dodal Tarot trump ${number}.jpg` : "";
 }
 
 function getRwsCommonsFileName(card) {
@@ -484,6 +580,12 @@ function shortCardTitle(name) {
 }
 
 function getCardPalette(card, deckId) {
+  if (deckId === "contrast") {
+    return { tone: "#ffffff", accent: "#ffd400", ink: "#000000" };
+  }
+  if (deckId === "noctis") {
+    return { tone: "#46205f", accent: "#d8b15e", ink: "#f5ead2" };
+  }
   const marseille = deckId === "marseille";
   const suitPalettes = {
     wands: { tone: marseille ? "#d99b4a" : "#9d433a", accent: "#6b2b22", ink: "#28160f" },
@@ -507,6 +609,7 @@ function renderMajorScene(card, deckId) {
   const sunCards = new Set(["sun", "magician", "empress", "star", "world", "judgement"]);
   const towerCards = new Set(["tower", "emperor", "chariot"]);
   const isMarseille = deckId === "marseille";
+  const isNoctis = deckId === "noctis";
   const skyMark = moonCards.has(card.id) ? "☾" : sunCards.has(card.id) ? "☀" : "✦";
   const towers = towerCards.has(card.id)
     ? `<span class="scene-tower left"></span><span class="scene-tower right"></span>`
@@ -516,7 +619,7 @@ function renderMajorScene(card, deckId) {
     : `<span class="scene-mountain mountain-a"></span><span class="scene-mountain mountain-b"></span>`;
   return `
     <div class="major-scene scene-${card.id}">
-      <span class="scene-sky">${escapeHtml(skyMark)}</span>
+      <span class="scene-sky">${escapeHtml(isNoctis ? "✶" : skyMark)}</span>
       ${landscape}
       ${towers}
       <span class="scene-path"></span>
@@ -623,6 +726,7 @@ function renderLibrary() {
 }
 
 function openCard(card) {
+  const deck = getDeck();
   $("#dialogContent").innerHTML = `
     <div class="dialog-layout">
       ${renderCard(card)}
@@ -633,11 +737,27 @@ function openCard(card) {
         <p><strong>Upright:</strong> ${escapeHtml(card.upright)}</p>
         <p><strong>Reversed:</strong> ${escapeHtml(card.reversed)}</p>
         <p><strong>Symbolism:</strong> ${escapeHtml(card.symbol)}</p>
-        <p><strong>Deck note:</strong> Rider-Waite-Smith emphasizes pictorial symbolism; Marseille asks you to read number, suit, color, and arrangement more directly.</p>
+        <p><strong>Deep dive:</strong> ${escapeHtml(card.deepSymbol || buildDeepSymbol(card))}</p>
+        <p><strong>Deck note:</strong> ${escapeHtml(getDeckNote(card, deck))}</p>
       </div>
     </div>
   `;
   $("#cardDialog").showModal();
+}
+
+function buildDeepSymbol(card) {
+  if (card.arcana === "major") return `${card.name} asks you to read posture, gesture, threshold, and surrounding emblems together.`;
+  return `${card.name} combines ${card.keyword} with the ${card.suit} suit, so read number and element together before reaching for a fixed answer.`;
+}
+
+function getDeckNote(card, deck) {
+  const notes = {
+    rws: "Rider-Waite-Smith emphasizes pictorial symbolism, scenic detail, and Pamela Colman Smith's narrative compositions.",
+    marseille: "Marseille asks you to read number, suit, color, and arrangement directly; trumps preserve older French titles and visual grammar.",
+    contrast: "The high-contrast deck reduces ornament so rank, suit, and keyword stay readable at small sizes.",
+    noctis: "Arcana Noctis is a generated gothic study treatment that keeps traditional meanings while using moonlit occult/fantasy styling.",
+  };
+  return notes[deck.id] || notes.rws;
 }
 
 function saveCurrentReading(event) {
@@ -656,6 +776,7 @@ function saveCurrentReading(event) {
 }
 
 function renderJournal() {
+  renderJournalInsights();
   const category = $("#journalCategoryFilter")?.value || "all";
   const mood = $("#journalMoodFilter")?.value || "all";
   const filtered = state.journal.filter(
@@ -688,6 +809,52 @@ function renderJournal() {
       `;
     })
     .join("");
+}
+
+function renderJournalInsights() {
+  const panel = $("#journalInsights");
+  if (!panel) return;
+  if (!state.journal.length) {
+    panel.innerHTML = `
+      <div class="section-kicker">Pattern insights</div>
+      <h3>No patterns yet</h3>
+      <p>Save readings to see recurring cards, suits, moods, and categories. Everything stays local to this device.</p>
+    `;
+    return;
+  }
+  const cardCounts = new Map();
+  const suitCounts = new Map();
+  const moodCounts = new Map();
+  const categoryCounts = new Map();
+  state.journal.forEach((entry) => {
+    moodCounts.set(entry.mood || "clear", (moodCounts.get(entry.mood || "clear") || 0) + 1);
+    categoryCounts.set(entry.category || "self", (categoryCounts.get(entry.category || "self") || 0) + 1);
+    entry.cards.forEach((cardEntry) => {
+      const card = cards.find((item) => item.id === cardEntry.cardId);
+      if (!card) return;
+      cardCounts.set(card.name, (cardCounts.get(card.name) || 0) + 1);
+      suitCounts.set(card.suit, (suitCounts.get(card.suit) || 0) + 1);
+    });
+  });
+  panel.innerHTML = `
+    <div class="section-kicker">Pattern insights</div>
+    <h3>${state.journal.length} saved ${state.journal.length === 1 ? "reading" : "readings"}</h3>
+    <div class="insight-grid">
+      ${renderInsight("Most frequent card", topEntry(cardCounts))}
+      ${renderInsight("Dominant suit", topEntry(suitCounts))}
+      ${renderInsight("Common mood", topEntry(moodCounts))}
+      ${renderInsight("Common category", topEntry(categoryCounts))}
+    </div>
+  `;
+}
+
+function topEntry(map) {
+  const [label, count] = [...map.entries()].sort((a, b) => b[1] - a[1])[0] || ["None yet", 0];
+  return count ? `${label} (${count})` : label;
+}
+
+function renderInsight(label, value) {
+  return `<div class="insight-card"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`;
 }
 
 function exportJournal() {

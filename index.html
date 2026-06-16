@@ -89,6 +89,10 @@
                 <p class="stage-label" id="deckName">Rider-Waite-Smith</p>
                 <p class="stage-copy" id="deckCopy"></p>
                 <p class="art-credit" id="deckCredit"></p>
+                <details class="provenance-card">
+                  <summary>Deck provenance</summary>
+                  <dl id="deckProvenance"></dl>
+                </details>
               </div>
             </aside>
           </div>
@@ -145,6 +149,7 @@
               <button class="danger-button" id="clearJournalButton">Clear</button>
             </div>
           </div>
+          <section class="insights-panel" id="journalInsights"></section>
           <div class="journal-filters">
             <select id="journalCategoryFilter" aria-label="Filter journal by category"></select>
             <select id="journalMoodFilter" aria-label="Filter journal by mood"></select>
