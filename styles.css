@@ -168,6 +168,7 @@ main {
 .reading-panel,
 .deck-stage,
 .deep-dive-panel,
+.settings-panel,
 .journal-empty {
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -1194,6 +1195,91 @@ textarea {
   margin: 0;
 }
 
+.ai-reading-panel,
+.settings-panel {
+  margin-top: 16px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(43, 34, 28, 0.78);
+}
+
+.ai-reading-panel h3,
+.settings-panel h3 {
+  margin-top: 6px;
+}
+
+.ai-reading-panel p,
+.settings-panel p {
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.ai-reading-panel.is-error {
+  border-color: rgba(255, 132, 118, 0.45);
+  background: rgba(85, 30, 26, 0.32);
+}
+
+.ai-reading-text {
+  margin-top: 12px;
+  color: var(--muted);
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+
+.journal-ai-text {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.settings-panel {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.72fr) minmax(0, 1fr);
+  gap: 22px;
+  box-shadow: 0 22px 70px var(--shadow);
+}
+
+.settings-form {
+  display: grid;
+  gap: 12px;
+}
+
+.settings-form .control-grid {
+  margin-top: 0;
+}
+
+.settings-note {
+  margin: 0;
+  font-size: 0.84rem;
+}
+
+.settings-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.settings-status {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(0, 0, 0, 0.14);
+}
+
+.settings-status strong {
+  color: var(--gold);
+}
+
+.settings-status span {
+  color: var(--muted);
+}
+
 .file-button {
   display: inline-grid;
   place-items: center;
@@ -1311,7 +1397,8 @@ textarea {
   }
 
   .reading-layout,
-  .dialog-layout {
+  .dialog-layout,
+  .settings-panel {
     grid-template-columns: 1fr;
   }
 

@@ -29,6 +29,7 @@
           <button class="nav-tab" data-nav="learn">Learn</button>
           <button class="nav-tab" data-nav="library">Cards</button>
           <button class="nav-tab" data-nav="journal">Journal</button>
+          <button class="nav-tab" data-nav="settings">Settings</button>
         </nav>
         <button class="icon-button" id="installButton" hidden title="Install app" aria-label="Install app">
           <span aria-hidden="true">↓</span>
@@ -155,6 +156,56 @@
             <select id="journalMoodFilter" aria-label="Filter journal by mood"></select>
           </div>
           <div class="journal-list" id="journalList"></div>
+        </section>
+
+        <section class="view" id="settingsView" aria-labelledby="settingsTitle">
+          <div class="section-heading">
+            <div>
+              <div class="section-kicker">Bring your own key</div>
+              <h2 id="settingsTitle">Optional AI readings.</h2>
+            </div>
+          </div>
+          <section class="settings-panel">
+            <div class="settings-copy">
+              <h3>Real readings</h3>
+              <p>
+                Add your own OpenAI or Claude API key to unlock the Real reading style. Your key is only used from
+                this browser and is forwarded through this app's private function to the provider you choose.
+              </p>
+            </div>
+            <form id="aiSettingsForm" class="settings-form">
+              <div class="control-grid">
+                <label>
+                  <span>Provider</span>
+                  <select id="aiProvider">
+                    <option value="openai">OpenAI</option>
+                    <option value="claude">Claude</option>
+                  </select>
+                </label>
+                <label>
+                  <span>Model</span>
+                  <input id="aiModel" type="text" autocomplete="off" spellcheck="false" />
+                </label>
+              </div>
+              <label>
+                <span>API key</span>
+                <input id="aiApiKey" type="password" autocomplete="off" spellcheck="false" placeholder="Paste a personal API key" />
+              </label>
+              <label class="toggle-row">
+                <input id="rememberAiKey" type="checkbox" />
+                <span>Remember key on this device</span>
+              </label>
+              <p class="settings-note">
+                If you do not remember it, the key lasts for this browser session only. Questions and drawn cards are
+                sent with your key when Real reading is used; keys are not saved by the app server.
+              </p>
+              <div class="settings-actions">
+                <button class="primary-button" type="submit">Save AI settings</button>
+                <button class="danger-button" id="clearAiSettingsButton" type="button">Clear AI settings</button>
+              </div>
+            </form>
+            <div class="settings-status" id="aiSettingsStatus" role="status"></div>
+          </section>
         </section>
       </main>
     </div>

@@ -72,7 +72,24 @@ const styles = [
     name: "Practical",
     description: "Action-oriented guidance and grounded next steps.",
   },
+  {
+    id: "real",
+    name: "Real reading",
+    description: "AI-written synthesis using your question, spread, positions, and drawn cards.",
+    requiresAi: true,
+  },
 ];
+
+const aiProviders = {
+  openai: {
+    name: "OpenAI",
+    defaultModel: "gpt-4.1-mini",
+  },
+  claude: {
+    name: "Claude",
+    defaultModel: "claude-sonnet-4-6",
+  },
+};
 
 const spreads = [
   {
@@ -273,6 +290,7 @@ const state = {
   spreadId: localStorage.getItem("av.spread") || "one",
   styleId: localStorage.getItem("av.style") || "traditional",
   reversals: localStorage.getItem("av.reversals") === "true",
+  ai: loadAiSettings(),
   currentReading: null,
   journal: JSON.parse(localStorage.getItem("av.journal") || "[]"),
 };
@@ -293,7 +311,11 @@ function init() {
 function populateControls() {
   $("#deckSelect").innerHTML = decks.map((d) => `<option value="${d.id}">${d.name}</option>`).join("");
   $("#spreadSelect").innerHTML = spreads.map((s) => `<option value="${s.id}">${s.name}</option>`).join("");
-  $("#styleSelect").innerHTML = styles.map((s) => `<option value="${s.id}">${s.name}</option>`).join("");
+  $("#styleSelect").innerHTML = getAvailableStyles().map((s) => `<option value="${s.id}">${s.name}</option>`).join("");
+  if (!getAvailableStyles().some((style) => style.id === state.styleId)) {
+    state.styleId = "traditional";
+    localStorage.setItem("av.style", state.styleId);
+  }
   $("#deckSelect").value = state.deckId;
   $("#spreadSelect").value = state.spreadId;
   $("#styleSelect").value = state.styleId;
@@ -302,6 +324,7 @@ function populateControls() {
     `<option value="all">All categories</option>` + categories.map((c) => `<option>${c}</option>`).join("");
   $("#journalMoodFilter").innerHTML =
     `<option value="all">All moods</option>` + moods.map((m) => `<option>${m}</option>`).join("");
+  renderAiSettingsForm();
 }
 
 function bindEvents() {
@@ -327,6 +350,9 @@ function bindEvents() {
   $("#clearJournalButton").addEventListener("click", clearJournal);
   $("#journalCategoryFilter").addEventListener("change", renderJournal);
   $("#journalMoodFilter").addEventListener("change", renderJournal);
+  $("#aiSettingsForm").addEventListener("submit", saveAiSettings);
+  $("#clearAiSettingsButton").addEventListener("click", clearAiSettings);
+  $("#aiProvider").addEventListener("change", updateAiModelDefault);
 }
 
 function showView(name) {
@@ -376,6 +402,9 @@ function drawReading(isDaily) {
   };
   state.currentReading = reading;
   renderReading(reading);
+  if (style.id === "real") {
+    generateRealReading(reading);
+  }
   $("#readingResult").scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
@@ -414,6 +443,7 @@ function renderReading(reading) {
     <div class="spread-board">
       ${reading.cards.map((entry) => renderDrawnCard(entry, deck.id, style.id)).join("")}
     </div>
+    ${style.id === "real" ? renderAiReadingPanel(reading) : ""}
     <form class="journal-editor" id="saveReadingForm">
       <div class="control-grid">
         <label><span>Category</span><select id="journalCategory">${categories
@@ -444,6 +474,23 @@ function renderDrawnCard(entry, deckId, styleId) {
       <p class="interpretation">${escapeHtml(interpret(card, entry.position, styleId, reversed))}</p>
       <button class="secondary-button" data-learn-card="${card.id}">Learn this card</button>
     </article>
+  `;
+}
+
+function renderAiReadingPanel(reading) {
+  const status = reading.aiStatus || "loading";
+  const provider = aiProviders[state.ai.provider]?.name || "AI";
+  const body = {
+    loading: `<p>Drawing together the full spread with ${escapeHtml(provider)}...</p>`,
+    ready: `<div class="ai-reading-text">${escapeHtml(reading.aiText)}</div>`,
+    error: `<p>${escapeHtml(reading.aiError || "The AI reading could not be generated.")}</p>`,
+  }[status];
+  return `
+    <section class="ai-reading-panel ${status === "error" ? "is-error" : ""}" id="aiReadingPanel">
+      <div class="section-kicker">Real reading</div>
+      <h3>${status === "ready" ? "AI synthesis" : status === "error" ? "AI reading unavailable" : "Reading in progress"}</h3>
+      ${body}
+    </section>
   `;
 }
 
@@ -677,6 +724,7 @@ function interpret(card, position, styleId, reversed) {
     reflective: `${card.name} invites you to notice ${card.keyword}. In ${position}, ask where this pattern is already alive in you. ${meaning}`,
     spiritual: `${card.name} appears as guidance around ${card.keyword}. In ${position}, listen for the sacred lesson beneath the surface. ${meaning}`,
     practical: `${card.name} points to ${card.keyword}. For ${position}, turn this into one grounded choice: ${meaning}`,
+    real: `Base meaning for ${position}: ${card.name} carries ${card.keyword}. ${meaning}`,
   };
   return intros[styleId] || intros.traditional;
 }
@@ -805,6 +853,7 @@ function renderJournal() {
               .join("")}
           </div>
           ${entry.note ? `<p>${escapeHtml(entry.note)}</p>` : ""}
+          ${entry.aiText ? `<div class="ai-reading-text journal-ai-text">${escapeHtml(entry.aiText)}</div>` : ""}
         </article>
       `;
     })
@@ -904,6 +953,168 @@ function getSpread() {
 
 function getStyle() {
   return styles.find((style) => style.id === state.styleId) || styles[0];
+}
+
+function getAvailableStyles() {
+  return styles.filter((style) => !style.requiresAi || hasAiKey());
+}
+
+function hasAiKey() {
+  return Boolean(state.ai?.apiKey?.trim());
+}
+
+function loadAiSettings() {
+  const remember = localStorage.getItem("av.ai.remember") === "true";
+  const provider = localStorage.getItem("av.ai.provider") || "openai";
+  const model =
+    localStorage.getItem("av.ai.model") ||
+    aiProviders[provider]?.defaultModel ||
+    aiProviders.openai.defaultModel;
+  const apiKey = remember ? localStorage.getItem("av.ai.key") || "" : sessionStorage.getItem("av.ai.key") || "";
+  return { provider, model, apiKey, remember };
+}
+
+function renderAiSettingsForm() {
+  if (!$("#aiSettingsForm")) return;
+  $("#aiProvider").value = state.ai.provider;
+  $("#aiModel").value = state.ai.model || aiProviders[state.ai.provider]?.defaultModel || "";
+  $("#aiApiKey").value = "";
+  $("#aiApiKey").placeholder = hasAiKey() ? "Saved key is active" : "Paste a personal API key";
+  $("#rememberAiKey").checked = state.ai.remember;
+  renderAiSettingsStatus();
+}
+
+function renderAiSettingsStatus(message = "") {
+  const status = $("#aiSettingsStatus");
+  if (!status) return;
+  status.innerHTML = `
+    <strong>${hasAiKey() ? "Real readings enabled" : "Real readings disabled"}</strong>
+    <span>${escapeHtml(message || (hasAiKey() ? `${aiProviders[state.ai.provider]?.name || "AI"} is configured.` : "Add a key to reveal the Real reading option."))}</span>
+  `;
+}
+
+function updateAiModelDefault() {
+  const provider = $("#aiProvider").value;
+  $("#aiModel").value = aiProviders[provider]?.defaultModel || "";
+}
+
+function saveAiSettings(event) {
+  event.preventDefault();
+  const provider = $("#aiProvider").value;
+  const model = $("#aiModel").value.trim() || aiProviders[provider].defaultModel;
+  const typedKey = $("#aiApiKey").value.trim();
+  const remember = $("#rememberAiKey").checked;
+  const apiKey = typedKey || state.ai.apiKey || "";
+
+  state.ai = { provider, model, apiKey, remember };
+  localStorage.setItem("av.ai.provider", provider);
+  localStorage.setItem("av.ai.model", model);
+  localStorage.setItem("av.ai.remember", String(remember));
+  if (remember && apiKey) {
+    localStorage.setItem("av.ai.key", apiKey);
+    sessionStorage.removeItem("av.ai.key");
+  } else {
+    localStorage.removeItem("av.ai.key");
+    if (apiKey) sessionStorage.setItem("av.ai.key", apiKey);
+  }
+
+  populateControls();
+  renderAiSettingsStatus(
+    hasAiKey() ? "Settings saved. Real reading is available in the reading style menu." : "Settings saved. Add a key to enable Real reading.",
+  );
+}
+
+function clearAiSettings() {
+  state.ai = {
+    provider: "openai",
+    model: aiProviders.openai.defaultModel,
+    apiKey: "",
+    remember: false,
+  };
+  localStorage.removeItem("av.ai.provider");
+  localStorage.removeItem("av.ai.model");
+  localStorage.removeItem("av.ai.remember");
+  localStorage.removeItem("av.ai.key");
+  sessionStorage.removeItem("av.ai.key");
+  if (state.styleId === "real") {
+    state.styleId = "traditional";
+    localStorage.setItem("av.style", state.styleId);
+  }
+  populateControls();
+  renderAiSettingsStatus("AI settings cleared.");
+}
+
+async function generateRealReading(reading) {
+  reading.aiStatus = "loading";
+  renderAiReadingOnly(reading);
+  try {
+    const prompt = buildAiReadingPrompt(reading);
+    const text = state.ai.provider === "claude" ? await callClaude(prompt) : await callOpenAi(prompt);
+    reading.aiStatus = "ready";
+    reading.aiText = text.trim();
+  } catch (error) {
+    reading.aiStatus = "error";
+    reading.aiError = error.message || "The provider returned an error.";
+  }
+  if (state.currentReading?.id === reading.id) {
+    state.currentReading = reading;
+  }
+  renderAiReadingOnly(reading);
+}
+
+function renderAiReadingOnly(reading) {
+  const panel = $("#aiReadingPanel");
+  if (!panel) return;
+  const wrapper = document.createElement("div");
+  wrapper.innerHTML = renderAiReadingPanel(reading).trim();
+  panel.replaceWith(wrapper.firstElementChild);
+}
+
+function buildAiReadingPrompt(reading) {
+  const deck = decks.find((d) => d.id === reading.deckId);
+  const spread = spreads.find((s) => s.id === reading.spreadId);
+  const cardLines = reading.cards
+    .map((entry) => {
+      const card = cards.find((item) => item.id === entry.cardId);
+      const reversed = entry.orientation === "reversed";
+      return `- ${entry.position}: ${card.name} (${reversed ? "reversed" : "upright"}). Keyword: ${card.keyword}. Meaning: ${
+        reversed ? card.reversed : card.upright
+      }. Symbolism: ${card.symbol}`;
+    })
+    .join("\n");
+  return `Question or intention: ${reading.question || "No explicit question"}\nDeck: ${deck.name}\nSpread: ${spread.name}\nCards:\n${cardLines}\n\nWrite a grounded tarot reading for reflective use. Use the card positions, orientations, and interactions between cards. Avoid claiming certainty, fate, medical, legal, financial, or crisis advice. Keep it warm, specific, and useful. Format with these short sections: Overall current, Card-by-card, What to notice, Gentle next step.`;
+}
+
+async function callOpenAi(prompt) {
+  return callAiProxy(prompt);
+}
+
+async function callClaude(prompt) {
+  return callAiProxy(prompt);
+}
+
+async function callAiProxy(prompt) {
+  const providerName = aiProviders[state.ai.provider]?.name || "AI";
+  const response = await fetch("/.netlify/functions/ai-reading", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      provider: state.ai.provider,
+      model: state.ai.model,
+      apiKey: state.ai.apiKey,
+      prompt,
+    }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(providerErrorMessage(data, providerName));
+  if (!data.text) throw new Error(`${providerName} returned no reading text.`);
+  return data.text;
+}
+
+function providerErrorMessage(data, provider) {
+  return data?.error?.message || `${provider} returned an error. Check the key, model, billing, and browser access.`;
 }
 
 function escapeHtml(value = "") {

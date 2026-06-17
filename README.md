@@ -10,7 +10,7 @@ Arcana Veritas is a free, installable tarot PWA built around historical deck tra
 
 Mystic, but rooted in tradition.
 
-The app is designed to feel like opening an old deck at a quiet table: warm, respectful, symbolic, and focused on the cards themselves. The Rider-Waite-Smith deck uses historical scan artwork, and the experience is intentionally free of ads, login walls, and AI-generated readings.
+The app is designed to feel like opening an old deck at a quiet table: warm, respectful, symbolic, and focused on the cards themselves. The Rider-Waite-Smith deck uses historical scan artwork, and the experience is intentionally free of ads and login walls. AI readings are optional and require the user to bring their own API key.
 
 ## Features
 
@@ -28,6 +28,8 @@ The app is designed to feel like opening an old deck at a quiet table: warm, res
   - Reflective
   - Spiritual Guidance
   - Practical
+- Optional BYOK Real readings with OpenAI or Claude
+- Settings page for session-only or remembered local API key storage
 - Fixed authored interpretations
 - Full 78-card library
 - Symbolism deep dives
@@ -60,9 +62,12 @@ This is a small static PWA:
 - Vanilla JavaScript
 - Web app manifest
 - Service worker
+- Netlify Function for BYOK AI provider calls
 - Netlify static deploy
 
 No framework, no build step, no account system.
+
+Optional AI readings use a bring-your-own-key flow from the browser. Keys are never shipped with the app; if users choose to remember a key it is stored in browser `localStorage`, otherwise it stays in `sessionStorage`. During a Real reading, the key is sent to the app's Netlify Function only to forward that request to the selected provider.
 
 ## Local Development
 
