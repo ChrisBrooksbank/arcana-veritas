@@ -1,6 +1,7 @@
+const DEFAULT_DECK_ID = "rws";
 const decks = [
   {
-    id: "rws",
+    id: DEFAULT_DECK_ID,
     name: "Rider-Waite-Smith",
     system: "rws",
     description:
@@ -11,43 +12,6 @@ const decks = [
     year: "1909",
     license: "Public domain in the US and UK; verify jurisdiction for reuse.",
     sourceUrl: "https://commons.wikimedia.org/wiki/Category:Rider-Waite_tarot_deck",
-  },
-  {
-    id: "marseille",
-    name: "Tarot de Marseille",
-    system: "marseille",
-    description:
-      "Historic Jean Dodal-inspired Marseille system, geometric and more austere for learning suit, number, and archetype.",
-    source:
-      "Artwork: Jean Dodal Tarot de Marseille, Lyon, ca. 1701-1715. Historical scan support is used where Commons filenames are available; generated study fallback remains for missing cards.",
-    artist: "Jean Dodal",
-    year: "ca. 1701-1715",
-    license: "Public domain historical work; individual hosted files retain their own source metadata.",
-    sourceUrl: "https://commons.wikimedia.org/wiki/Category:Tarot_de_Marseille_-_Jean_Dodal",
-  },
-  {
-    id: "contrast",
-    name: "High-Contrast Study",
-    system: "accessibility",
-    description:
-      "A stark accessibility deck with large labels, strong outlines, and simplified symbolism for low-vision study.",
-    source: "Original app-generated accessibility deck treatment for Arcana Veritas.",
-    artist: "Arcana Veritas system",
-    year: "2026",
-    license: "Generated study artwork; no historical artwork claim.",
-    sourceUrl: "https://github.com/ChrisBrooksbank/arcana-veritas",
-  },
-  {
-    id: "noctis",
-    name: "Arcana Noctis",
-    system: "gothic",
-    description:
-      "A gothic occult/fantasy study deck: moonlit frames, sigils, and symbolic figures mapped to traditional meanings.",
-    source: "Original app-generated gothic/occult/fantasy study deck treatment for Arcana Veritas.",
-    artist: "Arcana Veritas system",
-    year: "2026",
-    license: "Generated study artwork; intentionally separate from historical scan decks.",
-    sourceUrl: "https://github.com/ChrisBrooksbank/arcana-veritas",
   },
 ];
 
@@ -63,22 +27,17 @@ const styles = [
     description: "Gentle inquiry, journaling prompts, and inner work.",
   },
   {
-    id: "spiritual",
-    name: "Spiritual Guidance",
-    description: "Intuitive language grounded in the card's traditional symbolism.",
-  },
-  {
     id: "practical",
     name: "Practical",
     description: "Action-oriented guidance and grounded next steps.",
   },
-  {
-    id: "real",
-    name: "Real reading",
-    description: "AI-written synthesis using your question, spread, positions, and drawn cards.",
-    requiresAi: true,
-  },
 ];
+
+const realReadingStyle = {
+  id: "real",
+  name: "Real reading",
+  description: "AI-written synthesis using your question, spread, positions, and drawn cards.",
+};
 
 const aiProviders = {
   openai: {
@@ -286,7 +245,7 @@ const cards = [
 const categories = ["self", "relationships", "work", "creativity", "money", "wellbeing", "other"];
 const moods = ["clear", "curious", "hopeful", "tender", "uncertain", "charged", "grounded"];
 const state = {
-  deckId: localStorage.getItem("av.deck") || "rws",
+  deckId: DEFAULT_DECK_ID,
   spreadId: localStorage.getItem("av.spread") || "one",
   styleId: localStorage.getItem("av.style") || "traditional",
   reversals: localStorage.getItem("av.reversals") === "true",
@@ -301,7 +260,6 @@ const $$ = (selector) => Array.from(document.querySelectorAll(selector));
 function init() {
   populateControls();
   bindEvents();
-  renderDeckStage();
   renderLessons();
   renderLibrary();
   renderJournal();
@@ -309,17 +267,15 @@ function init() {
 }
 
 function populateControls() {
-  $("#deckSelect").innerHTML = decks.map((d) => `<option value="${d.id}">${d.name}</option>`).join("");
   $("#spreadSelect").innerHTML = spreads.map((s) => `<option value="${s.id}">${s.name}</option>`).join("");
-  $("#styleSelect").innerHTML = getAvailableStyles().map((s) => `<option value="${s.id}">${s.name}</option>`).join("");
-  if (!getAvailableStyles().some((style) => style.id === state.styleId)) {
+  if (!styles.some((style) => style.id === state.styleId)) {
     state.styleId = "traditional";
     localStorage.setItem("av.style", state.styleId);
   }
-  $("#deckSelect").value = state.deckId;
   $("#spreadSelect").value = state.spreadId;
-  $("#styleSelect").value = state.styleId;
   $("#reversalToggle").checked = state.reversals;
+  renderStyleModes();
+  renderRealReadingButton();
   $("#journalCategoryFilter").innerHTML =
     `<option value="all">All categories</option>` + categories.map((c) => `<option>${c}</option>`).join("");
   $("#journalMoodFilter").innerHTML =
@@ -329,15 +285,17 @@ function populateControls() {
 
 function bindEvents() {
   $$("[data-nav]").forEach((button) => button.addEventListener("click", () => showView(button.dataset.nav)));
-  $("#deckSelect").addEventListener("change", (event) => setPreference("deckId", event.target.value, "av.deck"));
   $("#spreadSelect").addEventListener("change", (event) => setPreference("spreadId", event.target.value, "av.spread"));
-  $("#styleSelect").addEventListener("change", (event) => setPreference("styleId", event.target.value, "av.style"));
+  $$("[data-style-mode]").forEach((button) =>
+    button.addEventListener("click", () => setPreference("styleId", button.dataset.styleMode, "av.style")),
+  );
   $("#reversalToggle").addEventListener("change", (event) => {
     state.reversals = event.target.checked;
     localStorage.setItem("av.reversals", String(state.reversals));
   });
   $("#drawButton").addEventListener("click", () => drawReading(false));
   $("#dailyButton").addEventListener("click", () => drawReading(true));
+  $("#realReadingButton").addEventListener("click", () => drawReading(false, "real"));
   $("#learnDailyButton").addEventListener("click", () => {
     showView("home");
     drawReading(true);
@@ -364,27 +322,27 @@ function showView(name) {
 function setPreference(key, value, storageKey) {
   state[key] = value;
   localStorage.setItem(storageKey, value);
-  renderDeckStage();
+  if (key === "styleId") renderStyleModes();
 }
 
-function renderDeckStage() {
-  const deck = getDeck();
-  $("#deckName").textContent = deck.name;
-  $("#deckCopy").textContent = deck.description;
-  $("#deckCredit").textContent = deck.source;
-  $("#deckProvenance").innerHTML = `
-    <dt>Artist/source</dt><dd>${escapeHtml(deck.artist)}</dd>
-    <dt>Date</dt><dd>${escapeHtml(deck.year)}</dd>
-    <dt>License</dt><dd>${escapeHtml(deck.license)}</dd>
-    <dt>Reference</dt><dd><a href="${escapeHtml(deck.sourceUrl)}" target="_blank" rel="noreferrer">Open source notes</a></dd>
-  `;
-  document.body.dataset.deck = deck.id;
+function renderStyleModes() {
+  $$("[data-style-mode]").forEach((button) => {
+    const active = button.dataset.styleMode === state.styleId;
+    button.classList.toggle("is-active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
 }
 
-function drawReading(isDaily) {
+function renderRealReadingButton() {
+  const button = $("#realReadingButton");
+  if (!button) return;
+  button.hidden = !hasAiKey();
+}
+
+function drawReading(isDaily, styleOverride = state.styleId) {
   const spread = isDaily ? spreads[0] : getSpread();
   const deck = getDeck();
-  const style = getStyle();
+  const style = getStyle(styleOverride);
   const question = isDaily ? "Card of the day" : $("#questionInput").value.trim();
   const drawn = drawUniqueCards(spread.positions.length, isDaily);
   const reading = {
@@ -426,8 +384,8 @@ function daySeed() {
 }
 
 function renderReading(reading) {
-  const deck = decks.find((d) => d.id === reading.deckId);
-  const style = styles.find((s) => s.id === reading.styleId);
+  const deck = getDeck(reading.deckId);
+  const style = getStyle(reading.styleId);
   const spread = spreads.find((s) => s.id === reading.spreadId);
   $("#readingResult").innerHTML = `
     <div class="result-header">
@@ -502,7 +460,7 @@ function renderCard(card, deckId = state.deckId, reversed = false) {
       <div class="card-art ${imageUrl ? "has-historical-scan" : ""}">
         ${
           imageUrl
-            ? `<img class="historical-card-image" src="${escapeHtml(imageUrl)}" alt="${escapeHtml(card.name)} historical tarot scan" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.closest('.card-art').classList.add('image-failed')" />`
+            ? `<img class="historical-card-image" src="${escapeHtml(imageUrl)}" alt="${escapeHtml(card.name)} historical tarot scan" loading="lazy" decoding="async" referrerpolicy="no-referrer" onload="markHistoricalImageLoaded(this)" onerror="markHistoricalImageFailed(this)" />`
             : ""
         }
         <div class="card-art-inner">
@@ -530,39 +488,9 @@ function renderCard(card, deckId = state.deckId, reversed = false) {
 }
 
 function getHistoricalImageUrl(card, deckId) {
-  const fileName = deckId === "rws" ? getRwsCommonsFileName(card) : getMarseilleCommonsFileName(card, deckId);
+  const fileName = deckId === DEFAULT_DECK_ID ? getRwsCommonsFileName(card) : "";
   if (!fileName) return "";
   return `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(fileName)}?width=700`;
-}
-
-function getMarseilleCommonsFileName(card, deckId) {
-  if (deckId !== "marseille" || card.arcana !== "major") return "";
-  const majorNumbers = {
-    fool: "00",
-    magician: "01",
-    priestess: "02",
-    empress: "03",
-    emperor: "04",
-    hierophant: "05",
-    lovers: "06",
-    chariot: "07",
-    justice: "08",
-    hermit: "09",
-    wheel: "10",
-    strength: "11",
-    hanged: "12",
-    death: "13",
-    temperance: "14",
-    devil: "15",
-    tower: "16",
-    star: "17",
-    moon: "18",
-    sun: "19",
-    judgement: "20",
-    world: "21",
-  };
-  const number = majorNumbers[card.id];
-  return number ? `Jean Dodal Tarot trump ${number}.jpg` : "";
 }
 
 function getRwsCommonsFileName(card) {
@@ -627,19 +555,12 @@ function shortCardTitle(name) {
 }
 
 function getCardPalette(card, deckId) {
-  if (deckId === "contrast") {
-    return { tone: "#ffffff", accent: "#ffd400", ink: "#000000" };
-  }
-  if (deckId === "noctis") {
-    return { tone: "#46205f", accent: "#d8b15e", ink: "#f5ead2" };
-  }
-  const marseille = deckId === "marseille";
   const suitPalettes = {
-    wands: { tone: marseille ? "#d99b4a" : "#9d433a", accent: "#6b2b22", ink: "#28160f" },
-    cups: { tone: marseille ? "#3f80a8" : "#445e78", accent: "#233d5e", ink: "#101923" },
-    swords: { tone: marseille ? "#d7c8a1" : "#7b8790", accent: "#33434d", ink: "#15191b" },
-    pentacles: { tone: marseille ? "#5e9a66" : "#53745b", accent: "#254b34", ink: "#101b13" },
-    major: { tone: marseille ? "#c9483f" : "#6f5576", accent: "#2e2036", ink: "#1e1422" },
+    wands: { tone: "#9d433a", accent: "#6b2b22", ink: "#28160f" },
+    cups: { tone: "#445e78", accent: "#233d5e", ink: "#101923" },
+    swords: { tone: "#7b8790", accent: "#33434d", ink: "#15191b" },
+    pentacles: { tone: "#53745b", accent: "#254b34", ink: "#101b13" },
+    major: { tone: "#6f5576", accent: "#2e2036", ink: "#1e1422" },
   };
   return suitPalettes[card.suitId || "major"];
 }
@@ -655,19 +576,14 @@ function renderMajorScene(card, deckId) {
   const moonCards = new Set(["priestess", "moon", "hermit", "hanged"]);
   const sunCards = new Set(["sun", "magician", "empress", "star", "world", "judgement"]);
   const towerCards = new Set(["tower", "emperor", "chariot"]);
-  const isMarseille = deckId === "marseille";
-  const isNoctis = deckId === "noctis";
   const skyMark = moonCards.has(card.id) ? "☾" : sunCards.has(card.id) ? "☀" : "✦";
   const towers = towerCards.has(card.id)
     ? `<span class="scene-tower left"></span><span class="scene-tower right"></span>`
     : `<span class="scene-pillar left"></span><span class="scene-pillar right"></span>`;
-  const landscape = isMarseille
-    ? `<span class="marseille-vine vine-a"></span><span class="marseille-vine vine-b"></span>`
-    : `<span class="scene-mountain mountain-a"></span><span class="scene-mountain mountain-b"></span>`;
   return `
     <div class="major-scene scene-${card.id}">
-      <span class="scene-sky">${escapeHtml(isNoctis ? "✶" : skyMark)}</span>
-      ${landscape}
+      <span class="scene-sky">${escapeHtml(skyMark)}</span>
+      <span class="scene-mountain mountain-a"></span><span class="scene-mountain mountain-b"></span>
       ${towers}
       <span class="scene-path"></span>
       <span class="scene-figure">
@@ -697,7 +613,7 @@ function renderMinorScene(card, deckId) {
 
   if (!pipNumber) {
     return `
-      <div class="court-scene ${deckId === "marseille" ? "is-marseille" : ""}">
+      <div class="court-scene">
         <span class="court-arch"></span>
         <span class="court-crown">♛</span>
         <span class="court-face"></span>
@@ -709,7 +625,7 @@ function renderMinorScene(card, deckId) {
   }
 
   return `
-    <div class="pip-scene pip-count-${pipNumber} ${deckId === "marseille" ? "is-marseille" : ""}">
+    <div class="pip-scene pip-count-${pipNumber}">
       <span class="pip-vine vine-a"></span>
       <span class="pip-vine vine-b"></span>
       ${Array.from({ length: pipNumber }, (_, index) => `<span class="pip pip-${index + 1}">${escapeHtml(card.glyph)}</span>`).join("")}
@@ -722,7 +638,6 @@ function interpret(card, position, styleId, reversed) {
   const intros = {
     traditional: `In the ${position} position, ${card.name} speaks through ${card.keyword}: ${meaning}`,
     reflective: `${card.name} invites you to notice ${card.keyword}. In ${position}, ask where this pattern is already alive in you. ${meaning}`,
-    spiritual: `${card.name} appears as guidance around ${card.keyword}. In ${position}, listen for the sacred lesson beneath the surface. ${meaning}`,
     practical: `${card.name} points to ${card.keyword}. For ${position}, turn this into one grounded choice: ${meaning}`,
     real: `Base meaning for ${position}: ${card.name} carries ${card.keyword}. ${meaning}`,
   };
@@ -798,14 +713,8 @@ function buildDeepSymbol(card) {
   return `${card.name} combines ${card.keyword} with the ${card.suit} suit, so read number and element together before reaching for a fixed answer.`;
 }
 
-function getDeckNote(card, deck) {
-  const notes = {
-    rws: "Rider-Waite-Smith emphasizes pictorial symbolism, scenic detail, and Pamela Colman Smith's narrative compositions.",
-    marseille: "Marseille asks you to read number, suit, color, and arrangement directly; trumps preserve older French titles and visual grammar.",
-    contrast: "The high-contrast deck reduces ornament so rank, suit, and keyword stay readable at small sizes.",
-    noctis: "Arcana Noctis is a generated gothic study treatment that keeps traditional meanings while using moonlit occult/fantasy styling.",
-  };
-  return notes[deck.id] || notes.rws;
+function getDeckNote() {
+  return "Rider-Waite-Smith emphasizes pictorial symbolism, scenic detail, and Pamela Colman Smith's narrative compositions.";
 }
 
 function saveCurrentReading(event) {
@@ -837,8 +746,8 @@ function renderJournal() {
   $("#journalList").innerHTML = filtered
     .map((entry) => {
       const spread = spreads.find((s) => s.id === entry.spreadId);
-      const deck = decks.find((d) => d.id === entry.deckId);
-      const style = styles.find((s) => s.id === entry.styleId);
+      const deck = getDeck(entry.deckId);
+      const style = getStyle(entry.styleId);
       return `
         <article class="journal-entry">
           <span class="tag">${escapeHtml(entry.category || "self")} · ${escapeHtml(entry.mood || "clear")}</span>
@@ -943,20 +852,17 @@ function persistJournal() {
   localStorage.setItem("av.journal", JSON.stringify(state.journal));
 }
 
-function getDeck() {
-  return decks.find((deck) => deck.id === state.deckId) || decks[0];
+function getDeck(deckId = state.deckId) {
+  return decks.find((deck) => deck.id === deckId) || decks[0];
 }
 
 function getSpread() {
   return spreads.find((spread) => spread.id === state.spreadId) || spreads[0];
 }
 
-function getStyle() {
-  return styles.find((style) => style.id === state.styleId) || styles[0];
-}
-
-function getAvailableStyles() {
-  return styles.filter((style) => !style.requiresAi || hasAiKey());
+function getStyle(styleId = state.styleId) {
+  if (styleId === realReadingStyle.id) return realReadingStyle;
+  return styles.find((style) => style.id === styleId) || styles[0];
 }
 
 function hasAiKey() {
@@ -1020,7 +926,7 @@ function saveAiSettings(event) {
 
   populateControls();
   renderAiSettingsStatus(
-    hasAiKey() ? "Settings saved. Real reading is available in the reading style menu." : "Settings saved. Add a key to enable Real reading.",
+    hasAiKey() ? "Settings saved. Real reading is available from the reading screen." : "Settings saved. Add a key to enable Real reading.",
   );
 }
 
@@ -1071,7 +977,7 @@ function renderAiReadingOnly(reading) {
 }
 
 function buildAiReadingPrompt(reading) {
-  const deck = decks.find((d) => d.id === reading.deckId);
+  const deck = getDeck(reading.deckId);
   const spread = spreads.find((s) => s.id === reading.spreadId);
   const cardLines = reading.cards
     .map((entry) => {
@@ -1117,6 +1023,24 @@ function providerErrorMessage(data, provider) {
   return data?.error?.message || `${provider} returned an error. Check the key, model, billing, and browser access.`;
 }
 
+window.markHistoricalImageLoaded = (image) => {
+  const art = image.closest(".card-art");
+  if (!art) return;
+  if (image.naturalWidth > 32 && image.naturalHeight > 32) {
+    art.classList.add("image-loaded");
+    art.classList.remove("image-failed");
+  } else {
+    window.markHistoricalImageFailed(image);
+  }
+};
+
+window.markHistoricalImageFailed = (image) => {
+  const art = image.closest(".card-art");
+  if (!art) return;
+  art.classList.add("image-failed");
+  art.classList.remove("image-loaded");
+};
+
 function escapeHtml(value = "") {
   return String(value).replace(/[&<>"']/g, (char) => ({
     "&": "&amp;",
@@ -1128,21 +1052,72 @@ function escapeHtml(value = "") {
 }
 
 async function setupPwa() {
-  if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("/sw.js");
-  }
+  const installButton = $("#installButton");
+  const updateBanner = $("#pwaUpdateBanner");
+  const updateButton = $("#pwaUpdateButton");
   let installPrompt;
+  let waitingWorker;
+
+  const showUpdateReady = (worker) => {
+    waitingWorker = worker;
+    if (updateBanner) updateBanner.hidden = false;
+  };
+
+  if ("serviceWorker" in navigator) {
+    let refreshing = false;
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (refreshing) return;
+      refreshing = true;
+      window.location.reload();
+    });
+
+    try {
+      const registration = await navigator.serviceWorker.register("/sw.js");
+      if (registration.waiting) {
+        showUpdateReady(registration.waiting);
+      }
+      registration.addEventListener("updatefound", () => {
+        const newWorker = registration.installing;
+        if (!newWorker) return;
+        newWorker.addEventListener("statechange", () => {
+          if (newWorker.state === "installed" && navigator.serviceWorker.controller) {
+            showUpdateReady(newWorker);
+          }
+        });
+      });
+      if (document.visibilityState === "visible") {
+        registration.update();
+      }
+      document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "visible") registration.update();
+      });
+    } catch (error) {
+      console.warn("Service worker registration failed", error);
+    }
+  }
+
   window.addEventListener("beforeinstallprompt", (event) => {
     event.preventDefault();
     installPrompt = event;
-    $("#installButton").hidden = false;
+    installButton.hidden = false;
   });
-  $("#installButton").addEventListener("click", async () => {
+  window.addEventListener("appinstalled", () => {
+    installPrompt = null;
+    installButton.hidden = true;
+  });
+
+  installButton.addEventListener("click", async () => {
     if (!installPrompt) return;
     installPrompt.prompt();
     await installPrompt.userChoice;
     installPrompt = null;
-    $("#installButton").hidden = true;
+    installButton.hidden = true;
+  });
+
+  updateButton?.addEventListener("click", () => {
+    if (!waitingWorker) return;
+    updateButton.disabled = true;
+    waitingWorker.postMessage({ type: "SKIP_WAITING" });
   });
 }
 

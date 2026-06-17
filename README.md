@@ -2,9 +2,9 @@
 
 **A traditional tarot companion for spiritual insight, symbolic learning, and private reflection.**
 
-Live app: [https://arcana-veritas-20260615164633.netlify.app](https://arcana-veritas-20260615164633.netlify.app)
+Live app: [https://tarot-table.netlify.app](https://tarot-table.netlify.app)
 
-Arcana Veritas is a free, installable tarot PWA built around historical deck traditions rather than novelty fortune-telling. It supports quick readings, authored interpretations, tarot learning, and a private local journal.
+Arcana Veritas is a free, installable tarot PWA built around the Rider-Waite-Smith tradition rather than novelty fortune-telling. It supports quick readings, authored interpretations, tarot learning, and a private local journal.
 
 ## The Vibe
 
@@ -15,20 +15,16 @@ The app is designed to feel like opening an old deck at a quiet table: warm, res
 ## Features
 
 - Installable Progressive Web App
-- Rider-Waite-Smith deck with historical scan artwork
-- Tarot de Marseille deck with Jean Dodal historical trump scans where available
-- High-contrast accessibility study deck
-- Arcana Noctis gothic/occult/fantasy study deck
+- Rider-Waite-Smith deck with historical scan artwork and generated fallback art
 - One-card daily reading
 - Three-card Past / Present / Future spread
 - Situation / Action / Outcome spread
 - Yes / No / Maybe reflective spread
-- Selectable reading styles:
+- Visible reading mode buttons:
   - Traditional
   - Reflective
-  - Spiritual Guidance
   - Practical
-- Optional BYOK Real readings with OpenAI or Claude
+- Optional BYOK Real reading action with OpenAI or Claude
 - Settings page for session-only or remembered local API key storage
 - Fixed authored interpretations
 - Full 78-card library
@@ -45,9 +41,7 @@ The app is designed to feel like opening an old deck at a quiet table: warm, res
 
 The Rider-Waite-Smith deck uses public-domain historical scan artwork from the Pamela Colman Smith / A. E. Waite 1909 tarot tradition, loaded through Wikimedia Commons `Special:FilePath` image URLs.
 
-The Tarot de Marseille deck uses Jean Dodal historical scan support for known trump filenames and a generated Marseille study fallback where complete scan coverage is not yet available through stable public URLs.
-
-The High-Contrast Study and Arcana Noctis decks are app-generated study treatments, intentionally labeled separately from historical scan decks.
+If a historical scan cannot load, the app falls back to generated study artwork so card faces do not appear empty.
 
 ## Philosophy
 
@@ -87,15 +81,12 @@ http://127.0.0.1:5173/
 
 The live site is deployed on Netlify:
 
-[https://arcana-veritas-20260615164633.netlify.app](https://arcana-veritas-20260615164633.netlify.app)
+[https://tarot-table.netlify.app](https://tarot-table.netlify.app)
 
 Netlify uses [netlify.toml](./netlify.toml) and publishes the repository root as a static site.
 
 ## Roadmap Status
 
-- Complete historical Tarot de Marseille scan deck: partially implemented with Jean Dodal trump scans and generated fallback for missing stable public URLs.
-- Deck source/provenance metadata in the UI: implemented.
+- Single Rider-Waite-Smith deck flow: implemented.
 - Richer card-specific symbolism lessons: implemented with card detail deep dives.
 - Optional card pattern insights from the private journal: implemented locally.
-- High-contrast accessibility deck: implemented.
-- Original gothic/occult/fantasy deck: implemented as Arcana Noctis, an app-generated study deck.

@@ -43,27 +43,28 @@
               <div class="section-kicker">Private reading</div>
               <h1 id="readingTitle">Draw from the old symbols.</h1>
               <p class="lede">
-                Choose a deck, a spread, and a reading style. Interpretations are authored and tradition-rooted.
+                Choose a spread and reading mode. Interpretations use the Rider-Waite-Smith tradition.
               </p>
 
               <div class="control-grid" aria-label="Reading controls">
                 <label>
-                  <span>Deck</span>
-                  <select id="deckSelect"></select>
-                </label>
-                <label>
                   <span>Spread</span>
                   <select id="spreadSelect"></select>
-                </label>
-                <label>
-                  <span>Reading style</span>
-                  <select id="styleSelect"></select>
                 </label>
                 <label class="toggle-row">
                   <input id="reversalToggle" type="checkbox" />
                   <span>Allow reversals</span>
                 </label>
               </div>
+
+              <fieldset class="reading-mode" aria-label="Reading mode">
+                <legend>Reading mode</legend>
+                <div class="mode-options" id="styleModeGroup">
+                  <button type="button" class="mode-option" data-style-mode="traditional">Traditional</button>
+                  <button type="button" class="mode-option" data-style-mode="reflective">Reflective</button>
+                  <button type="button" class="mode-option" data-style-mode="practical">Practical</button>
+                </div>
+              </fieldset>
 
               <label class="question-field">
                 <span>Question or intention</span>
@@ -77,25 +78,9 @@
               <div class="reading-actions">
                 <button class="primary-button" id="drawButton">Shuffle and draw</button>
                 <button class="secondary-button" id="dailyButton">Card of the day</button>
+                <button class="secondary-button" id="realReadingButton" hidden>Real reading</button>
               </div>
             </section>
-
-            <aside class="deck-stage" aria-label="Selected deck preview">
-              <div class="deck-orbit">
-                <div class="card-back fan-card"></div>
-                <div class="card-back fan-card"></div>
-                <div class="card-back fan-card"></div>
-              </div>
-              <div>
-                <p class="stage-label" id="deckName">Rider-Waite-Smith</p>
-                <p class="stage-copy" id="deckCopy"></p>
-                <p class="art-credit" id="deckCredit"></p>
-                <details class="provenance-card">
-                  <summary>Deck provenance</summary>
-                  <dl id="deckProvenance"></dl>
-                </details>
-              </div>
-            </aside>
           </div>
 
           <section class="reading-result" id="readingResult" aria-live="polite"></section>
@@ -169,7 +154,7 @@
             <div class="settings-copy">
               <h3>Real readings</h3>
               <p>
-                Add your own OpenAI or Claude API key to unlock the Real reading style. Your key is only used from
+                Add your own OpenAI or Claude API key to unlock Real readings. Your key is only used from
                 this browser and is forwarded through this app's private function to the provider you choose.
               </p>
             </div>
@@ -214,6 +199,11 @@
       <button class="icon-button dialog-close" id="dialogClose" aria-label="Close">×</button>
       <div id="dialogContent"></div>
     </dialog>
+
+    <div class="pwa-update-banner" id="pwaUpdateBanner" role="status" hidden>
+      <span>Update available</span>
+      <button class="secondary-button" id="pwaUpdateButton" type="button">Reload</button>
+    </div>
 
     <template id="cardTemplate">
       <article class="tarot-card">
