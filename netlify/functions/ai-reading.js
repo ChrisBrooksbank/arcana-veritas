@@ -1,6 +1,8 @@
 const SYSTEM_PROMPT =
   "You are a thoughtful tarot reader using tarot as symbolic reflection. Do not present predictions as certainty.";
 
+const MAX_PROMPT_LENGTH = 12000;
+
 exports.handler = async (event) => {
   if (event.httpMethod === "OPTIONS") {
     return response(204, "");
@@ -10,8 +12,15 @@ exports.handler = async (event) => {
     return response(405, { error: { message: "Use POST for AI readings." } });
   }
 
+  let payload;
   try {
-    const { provider, model, apiKey, prompt } = JSON.parse(event.body || "{}");
+    payload = JSON.parse(event.body || "{}");
+  } catch {
+    return response(400, { error: { message: "The reading request was not valid JSON." } });
+  }
+
+  try {
+    const { provider, model, apiKey, prompt } = payload || {};
     if (!["openai", "claude"].includes(provider)) {
       return response(400, { error: { message: "Choose OpenAI or Claude." } });
     }
@@ -20,6 +29,12 @@ exports.handler = async (event) => {
     }
     if (!prompt || typeof prompt !== "string") {
       return response(400, { error: { message: "A reading prompt is required." } });
+    }
+    if (prompt.length > MAX_PROMPT_LENGTH) {
+      return response(413, { error: { message: "The question is too long for a reading. Try a shorter one." } });
+    }
+    if (model !== undefined && (typeof model !== "string" || !/^[\w.:/-]{1,100}$/.test(model))) {
+      return response(400, { error: { message: "That model name does not look valid." } });
     }
 
     const text =

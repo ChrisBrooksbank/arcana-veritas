@@ -244,15 +244,97 @@ const cards = [
 
 const categories = ["self", "relationships", "work", "creativity", "money", "wellbeing", "other"];
 const moods = ["clear", "curious", "hopeful", "tender", "uncertain", "charged", "grounded"];
+const storage = createSafeStorage("localStorage");
+const sessionStore = createSafeStorage("sessionStorage");
 const state = {
   deckId: DEFAULT_DECK_ID,
-  spreadId: localStorage.getItem("av.spread") || "one",
-  styleId: localStorage.getItem("av.style") || "traditional",
-  reversals: localStorage.getItem("av.reversals") === "true",
+  spreadId: storage.getItem("av.spread") || "one",
+  styleId: storage.getItem("av.style") || "traditional",
+  reversals: storage.getItem("av.reversals") === "true",
   ai: loadAiSettings(),
   currentReading: null,
-  journal: JSON.parse(localStorage.getItem("av.journal") || "[]"),
+  journal: loadJournal(),
 };
+
+// Storage can be unavailable (private modes, blocked site data) or full; the app should keep working in memory.
+function createSafeStorage(name) {
+  let store = null;
+  try {
+    store = window[name];
+    store.getItem("av.probe");
+  } catch {
+    store = null;
+  }
+  return {
+    getItem(key) {
+      try {
+        return store ? store.getItem(key) : null;
+      } catch {
+        return null;
+      }
+    },
+    setItem(key, value) {
+      try {
+        store?.setItem(key, value);
+        return true;
+      } catch (error) {
+        console.warn(`Could not save ${key}`, error);
+        return false;
+      }
+    },
+    removeItem(key) {
+      try {
+        store?.removeItem(key);
+      } catch {
+        // Nothing to remove when storage is unavailable.
+      }
+    },
+  };
+}
+
+function loadJournal() {
+  try {
+    const parsed = JSON.parse(storage.getItem("av.journal") || "[]");
+    return Array.isArray(parsed) ? parsed.map(normalizeJournalEntry).filter(Boolean) : [];
+  } catch {
+    console.warn("Saved journal could not be read; starting with an empty journal.");
+    return [];
+  }
+}
+
+function normalizeJournalEntry(entry) {
+  if (!entry || typeof entry !== "object" || !Array.isArray(entry.cards)) return null;
+  const entryCards = entry.cards
+    .filter((cardEntry) => cardEntry && cards.some((card) => card.id === cardEntry.cardId))
+    .map((cardEntry) => ({
+      cardId: cardEntry.cardId,
+      position: String(cardEntry.position || "Card"),
+      orientation: cardEntry.orientation === "reversed" ? "reversed" : "upright",
+    }));
+  if (!entryCards.length) return null;
+  const createdAt = Number.isNaN(Date.parse(entry.createdAt)) ? new Date().toISOString() : entry.createdAt;
+  return {
+    ...entry,
+    id: typeof entry.id === "string" && entry.id ? entry.id : createId(),
+    createdAt,
+    deckId: getDeck(entry.deckId).id,
+    spreadId: spreads.some((spread) => spread.id === entry.spreadId) ? entry.spreadId : "one",
+    styleId: getStyle(entry.styleId).id,
+    category: categories.includes(entry.category) ? entry.category : "self",
+    mood: moods.includes(entry.mood) ? entry.mood : "clear",
+    question: typeof entry.question === "string" ? entry.question : "",
+    note: typeof entry.note === "string" ? entry.note : "",
+    aiText: typeof entry.aiText === "string" ? entry.aiText : undefined,
+    cards: entryCards,
+  };
+}
+
+function createId() {
+  if (window.crypto?.randomUUID) return window.crypto.randomUUID();
+  const bytes = new Uint8Array(16);
+  window.crypto.getRandomValues(bytes);
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => Array.from(document.querySelectorAll(selector));
@@ -270,7 +352,11 @@ function populateControls() {
   $("#spreadSelect").innerHTML = spreads.map((s) => `<option value="${s.id}">${s.name}</option>`).join("");
   if (!styles.some((style) => style.id === state.styleId)) {
     state.styleId = "traditional";
-    localStorage.setItem("av.style", state.styleId);
+    storage.setItem("av.style", state.styleId);
+  }
+  if (!spreads.some((spread) => spread.id === state.spreadId)) {
+    state.spreadId = spreads[0].id;
+    storage.setItem("av.spread", state.spreadId);
   }
   $("#spreadSelect").value = state.spreadId;
   $("#reversalToggle").checked = state.reversals;
@@ -291,11 +377,14 @@ function bindEvents() {
   );
   $("#reversalToggle").addEventListener("change", (event) => {
     state.reversals = event.target.checked;
-    localStorage.setItem("av.reversals", String(state.reversals));
+    storage.setItem("av.reversals", String(state.reversals));
   });
   $("#drawButton").addEventListener("click", () => drawReading(false));
   $("#dailyButton").addEventListener("click", () => drawReading(true));
-  $("#realReadingButton").addEventListener("click", () => drawReading(false, "real"));
+  $("#realReadingButton").addEventListener("click", (event) => {
+    if (event.currentTarget.disabled) return;
+    drawReading(false, "real");
+  });
   $("#learnDailyButton").addEventListener("click", () => {
     showView("home");
     drawReading(true);
@@ -303,6 +392,14 @@ function bindEvents() {
   $("#cardSearch").addEventListener("input", renderLibrary);
   $("#arcanaFilter").addEventListener("change", renderLibrary);
   $("#dialogClose").addEventListener("click", () => $("#cardDialog").close());
+  $("#cardDialog").addEventListener("click", (event) => {
+    // Clicks on the dialog element itself land on its padding or the backdrop; only close for the backdrop.
+    if (event.target !== event.currentTarget) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    const inside =
+      event.clientX >= rect.left && event.clientX <= rect.right && event.clientY >= rect.top && event.clientY <= rect.bottom;
+    if (!inside) event.currentTarget.close();
+  });
   $("#exportJournalButton").addEventListener("click", exportJournal);
   $("#importJournalInput").addEventListener("change", importJournal);
   $("#clearJournalButton").addEventListener("click", clearJournal);
@@ -316,12 +413,18 @@ function bindEvents() {
 function showView(name) {
   const id = name === "home" ? "homeView" : `${name}View`;
   $$(".view").forEach((view) => view.classList.toggle("is-active", view.id === id));
-  $$(".nav-tab").forEach((tab) => tab.classList.toggle("is-active", tab.dataset.nav === name));
+  $$(".nav-tab").forEach((tab) => {
+    const active = tab.dataset.nav === name;
+    tab.classList.toggle("is-active", active);
+    if (active) tab.setAttribute("aria-current", "page");
+    else tab.removeAttribute("aria-current");
+  });
+  window.scrollTo({ top: 0 });
 }
 
 function setPreference(key, value, storageKey) {
   state[key] = value;
-  localStorage.setItem(storageKey, value);
+  storage.setItem(storageKey, value);
   if (key === "styleId") renderStyleModes();
 }
 
@@ -344,9 +447,10 @@ function drawReading(isDaily, styleOverride = state.styleId) {
   const deck = getDeck();
   const style = getStyle(styleOverride);
   const question = isDaily ? "Card of the day" : $("#questionInput").value.trim();
-  const drawn = drawUniqueCards(spread.positions.length, isDaily);
+  const random = isDaily ? seededRandom(dayKey()) : secureRandom;
+  const drawn = drawUniqueCards(spread.positions.length, random);
   const reading = {
-    id: crypto.randomUUID(),
+    id: createId(),
     createdAt: new Date().toISOString(),
     deckId: deck.id,
     spreadId: spread.id,
@@ -355,7 +459,7 @@ function drawReading(isDaily, styleOverride = state.styleId) {
     cards: drawn.map((card, index) => ({
       cardId: card.id,
       position: spread.positions[index],
-      orientation: state.reversals && Math.random() > 0.72 ? "reversed" : "upright",
+      orientation: state.reversals && random() > 0.72 ? "reversed" : "upright",
     })),
   };
   state.currentReading = reading;
@@ -363,24 +467,48 @@ function drawReading(isDaily, styleOverride = state.styleId) {
   if (style.id === "real") {
     generateRealReading(reading);
   }
-  $("#readingResult").scrollIntoView({ behavior: "smooth", block: "start" });
+  scrollBelowHeader($("#readingResult"));
 }
 
-function drawUniqueCards(count, stable) {
+// scrollIntoView would tuck the result heading under the sticky header, which is tall on phones.
+function scrollBelowHeader(element) {
+  const header = $(".topbar");
+  const offset = (header?.offsetHeight || 0) + 8;
+  const top = element.getBoundingClientRect().top + window.scrollY - offset;
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  window.scrollTo({ top: Math.max(0, top), behavior: reduceMotion ? "auto" : "smooth" });
+}
+
+function drawUniqueCards(count, random) {
   const source = [...cards];
   const result = [];
-  let seed = stable ? daySeed() : Math.floor(Math.random() * 999999);
   while (result.length < count && source.length) {
-    seed = (seed * 9301 + 49297) % 233280;
-    const index = seed % source.length;
+    const index = Math.floor(random() * source.length);
     result.push(source.splice(index, 1)[0]);
   }
   return result;
 }
 
-function daySeed() {
-  const today = new Date();
-  return Number(`${today.getFullYear()}${today.getMonth() + 1}${today.getDate()}`);
+function secureRandom() {
+  const [value] = window.crypto.getRandomValues(new Uint32Array(1));
+  return value / 2 ** 32;
+}
+
+// Zero-padded local date, so 1 Nov and 11 Jan no longer share a seed.
+function dayKey(date = new Date()) {
+  return [date.getFullYear(), date.getMonth() + 1, date.getDate()].map((part) => String(part).padStart(2, "0")).join("-");
+}
+
+// mulberry32 seeded from a string hash: the card of the day stays stable for the whole day, orientation included.
+function seededRandom(key) {
+  let seed = 2166136261;
+  for (const char of key) seed = Math.imul(seed ^ char.charCodeAt(0), 16777619);
+  return () => {
+    seed = (seed + 0x6d2b79f5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
 }
 
 function renderReading(reading) {
@@ -413,9 +541,15 @@ function renderReading(reading) {
       <button class="primary-button" type="submit">Save to journal</button>
     </form>
   `;
-  $$(".drawn-card .tarot-card").forEach((el) =>
-    el.addEventListener("click", () => openCard(cards.find((card) => card.id === el.dataset.cardId))),
-  );
+  $$(".drawn-card .tarot-card").forEach((el) => {
+    const open = () => openCard(cards.find((card) => card.id === el.dataset.cardId));
+    el.addEventListener("click", open);
+    el.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      open();
+    });
+  });
   $$("[data-learn-card]").forEach((button) =>
     button.addEventListener("click", () => openCard(cards.find((card) => card.id === button.dataset.learnCard))),
   );
@@ -428,7 +562,7 @@ function renderDrawnCard(entry, deckId, styleId) {
   return `
     <article class="drawn-card">
       <span class="position-label">${escapeHtml(entry.position)} · ${reversed ? "Reversed" : "Upright"}</span>
-      ${renderCard(card, deckId, reversed)}
+      ${renderCard(card, deckId, reversed, true)}
       <p class="interpretation">${escapeHtml(interpret(card, entry.position, styleId, reversed))}</p>
       <button class="secondary-button" data-learn-card="${card.id}">Learn this card</button>
     </article>
@@ -452,11 +586,13 @@ function renderAiReadingPanel(reading) {
   `;
 }
 
-function renderCard(card, deckId = state.deckId, reversed = false) {
+function renderCard(card, deckId = state.deckId, reversed = false, interactive = false) {
   const palette = getCardPalette(card, deckId);
   const imageUrl = getHistoricalImageUrl(card, deckId);
   return `
-    <article class="tarot-card ${reversed ? "reversed" : ""}" data-card-id="${card.id}" data-deck="${deckId}" data-arcana="${card.arcana}" data-suit="${card.suitId || "major"}" style="--card-tone: ${palette.tone}; --card-accent: ${palette.accent}; --card-ink: ${palette.ink};" tabindex="0">
+    <article class="tarot-card ${reversed ? "reversed" : ""}" data-card-id="${card.id}" data-deck="${deckId}" data-arcana="${card.arcana}" data-suit="${card.suitId || "major"}" style="--card-tone: ${palette.tone}; --card-accent: ${palette.accent}; --card-ink: ${palette.ink};"${
+      interactive ? ` role="button" tabindex="0" aria-label="Open ${escapeHtml(card.name)} details"` : ""
+    }>
       <div class="card-art ${imageUrl ? "has-historical-scan" : ""}">
         ${
           imageUrl
@@ -677,7 +813,7 @@ function renderLibrary() {
   $("#cardGrid").innerHTML = filtered
     .map(
       (card) => `
-      <button class="library-card" data-card-id="${card.id}">
+      <button class="library-card" data-card-id="${card.id}" aria-label="${escapeHtml(card.name)}">
         ${renderCard(card)}
       </button>
     `,
@@ -705,7 +841,7 @@ function openCard(card) {
       </div>
     </div>
   `;
-  $("#cardDialog").showModal();
+  if (!$("#cardDialog").open) $("#cardDialog").showModal();
 }
 
 function buildDeepSymbol(card) {
@@ -720,13 +856,19 @@ function getDeckNote() {
 function saveCurrentReading(event) {
   event.preventDefault();
   if (!state.currentReading) return;
+  const { aiStatus, aiError, ...reading } = state.currentReading;
   const saved = {
-    ...state.currentReading,
+    ...reading,
     category: $("#journalCategory").value,
     mood: $("#journalMood").value,
     note: $("#journalNote").value.trim(),
   };
-  state.journal.unshift(saved);
+  const existingIndex = state.journal.findIndex((entry) => entry.id === saved.id);
+  if (existingIndex >= 0) {
+    state.journal[existingIndex] = saved;
+  } else {
+    state.journal.unshift(saved);
+  }
   persistJournal();
   renderJournal();
   showView("journal");
@@ -745,7 +887,7 @@ function renderJournal() {
   }
   $("#journalList").innerHTML = filtered
     .map((entry) => {
-      const spread = spreads.find((s) => s.id === entry.spreadId);
+      const spread = spreads.find((s) => s.id === entry.spreadId) || spreads[0];
       const deck = getDeck(entry.deckId);
       const style = getStyle(entry.styleId);
       return `
@@ -757,6 +899,7 @@ function renderJournal() {
             ${entry.cards
               .map((cardEntry) => {
                 const card = cards.find((item) => item.id === cardEntry.cardId);
+                if (!card) return "";
                 return `<span class="mini-card">${escapeHtml(cardEntry.position)}: ${escapeHtml(card.name)}</span>`;
               })
               .join("")}
@@ -831,9 +974,15 @@ async function importJournal(event) {
   try {
     const imported = JSON.parse(await file.text());
     if (!Array.isArray(imported)) throw new Error("Journal export must be an array.");
-    state.journal = [...imported, ...state.journal];
+    const valid = imported.map(normalizeJournalEntry).filter(Boolean);
+    if (imported.length && !valid.length) throw new Error("No readable journal entries were found in that file.");
+    const existingIds = new Set(state.journal.map((entry) => entry.id));
+    const fresh = valid.filter((entry) => !existingIds.has(entry.id));
+    state.journal = [...fresh, ...state.journal].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
     persistJournal();
     renderJournal();
+    const skipped = imported.length - fresh.length;
+    alert(`Imported ${fresh.length} ${fresh.length === 1 ? "reading" : "readings"}${skipped ? ` (${skipped} duplicate or unreadable skipped)` : ""}.`);
   } catch (error) {
     alert(`Import failed: ${error.message}`);
   } finally {
@@ -849,7 +998,9 @@ function clearJournal() {
 }
 
 function persistJournal() {
-  localStorage.setItem("av.journal", JSON.stringify(state.journal));
+  if (!storage.setItem("av.journal", JSON.stringify(state.journal))) {
+    alert("This reading is kept for now, but the device would not save the journal. Export it to keep a copy.");
+  }
 }
 
 function getDeck(deckId = state.deckId) {
@@ -870,13 +1021,14 @@ function hasAiKey() {
 }
 
 function loadAiSettings() {
-  const remember = localStorage.getItem("av.ai.remember") === "true";
-  const provider = localStorage.getItem("av.ai.provider") || "openai";
+  const remember = storage.getItem("av.ai.remember") === "true";
+  const storedProvider = storage.getItem("av.ai.provider");
+  const provider = aiProviders[storedProvider] ? storedProvider : "openai";
   const model =
-    localStorage.getItem("av.ai.model") ||
+    storage.getItem("av.ai.model") ||
     aiProviders[provider]?.defaultModel ||
     aiProviders.openai.defaultModel;
-  const apiKey = remember ? localStorage.getItem("av.ai.key") || "" : sessionStorage.getItem("av.ai.key") || "";
+  const apiKey = remember ? storage.getItem("av.ai.key") || "" : sessionStore.getItem("av.ai.key") || "";
   return { provider, model, apiKey, remember };
 }
 
@@ -913,15 +1065,15 @@ function saveAiSettings(event) {
   const apiKey = typedKey || state.ai.apiKey || "";
 
   state.ai = { provider, model, apiKey, remember };
-  localStorage.setItem("av.ai.provider", provider);
-  localStorage.setItem("av.ai.model", model);
-  localStorage.setItem("av.ai.remember", String(remember));
+  storage.setItem("av.ai.provider", provider);
+  storage.setItem("av.ai.model", model);
+  storage.setItem("av.ai.remember", String(remember));
   if (remember && apiKey) {
-    localStorage.setItem("av.ai.key", apiKey);
-    sessionStorage.removeItem("av.ai.key");
+    storage.setItem("av.ai.key", apiKey);
+    sessionStore.removeItem("av.ai.key");
   } else {
-    localStorage.removeItem("av.ai.key");
-    if (apiKey) sessionStorage.setItem("av.ai.key", apiKey);
+    storage.removeItem("av.ai.key");
+    if (apiKey) sessionStore.setItem("av.ai.key", apiKey);
   }
 
   populateControls();
@@ -937,14 +1089,14 @@ function clearAiSettings() {
     apiKey: "",
     remember: false,
   };
-  localStorage.removeItem("av.ai.provider");
-  localStorage.removeItem("av.ai.model");
-  localStorage.removeItem("av.ai.remember");
-  localStorage.removeItem("av.ai.key");
-  sessionStorage.removeItem("av.ai.key");
+  storage.removeItem("av.ai.provider");
+  storage.removeItem("av.ai.model");
+  storage.removeItem("av.ai.remember");
+  storage.removeItem("av.ai.key");
+  sessionStore.removeItem("av.ai.key");
   if (state.styleId === "real") {
     state.styleId = "traditional";
-    localStorage.setItem("av.style", state.styleId);
+    storage.setItem("av.style", state.styleId);
   }
   populateControls();
   renderAiSettingsStatus("AI settings cleared.");
@@ -953,6 +1105,7 @@ function clearAiSettings() {
 async function generateRealReading(reading) {
   reading.aiStatus = "loading";
   renderAiReadingOnly(reading);
+  setRealReadingBusy(true);
   try {
     const prompt = buildAiReadingPrompt(reading);
     const text = state.ai.provider === "claude" ? await callClaude(prompt) : await callOpenAi(prompt);
@@ -962,10 +1115,24 @@ async function generateRealReading(reading) {
     reading.aiStatus = "error";
     reading.aiError = error.message || "The provider returned an error.";
   }
-  if (state.currentReading?.id === reading.id) {
-    state.currentReading = reading;
+  setRealReadingBusy(false);
+  const saved = state.journal.find((entry) => entry.id === reading.id);
+  if (saved && reading.aiText) {
+    saved.aiText = reading.aiText;
+    persistJournal();
+    renderJournal();
   }
-  renderAiReadingOnly(reading);
+  // A newer reading may be on screen by now; never paint this answer into its panel.
+  if (state.currentReading?.id === reading.id) {
+    renderAiReadingOnly(reading);
+  }
+}
+
+function setRealReadingBusy(busy) {
+  const button = $("#realReadingButton");
+  if (!button) return;
+  button.disabled = busy;
+  button.textContent = busy ? "Reading..." : "Real reading";
 }
 
 function renderAiReadingOnly(reading) {
@@ -1064,9 +1231,11 @@ async function setupPwa() {
   };
 
   if ("serviceWorker" in navigator) {
+    // The first install claims the page too; only reload when an existing worker is being replaced.
+    const hadController = Boolean(navigator.serviceWorker.controller);
     let refreshing = false;
     navigator.serviceWorker.addEventListener("controllerchange", () => {
-      if (refreshing) return;
+      if (refreshing || !hadController) return;
       refreshing = true;
       window.location.reload();
     });

@@ -1,4 +1,4 @@
-const CACHE_NAME = "arcana-veritas-v11";
+const CACHE_NAME = "arcana-veritas-v12";
 const APP_SHELL = [
   "/",
   "/index.html",
@@ -7,6 +7,9 @@ const APP_SHELL = [
   "/manifest.webmanifest",
   "/icon.svg",
   "/maskable-icon.svg",
+  "/icon-192.png",
+  "/icon-512.png",
+  "/maskable-icon-512.png",
 ];
 
 self.addEventListener("install", (event) => {
@@ -17,21 +20,33 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches
       .keys()
-      .then((keys) => Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)))),
+      .then((keys) => Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))))
+      .then(() => self.clients.claim()),
   );
-  self.clients.claim();
 });
 
 self.addEventListener("fetch", (event) => {
-  if (event.request.method !== "GET") return;
+  const { request } = event;
+  if (request.method !== "GET") return;
+  const url = new URL(request.url);
+  // Card scans live on Wikimedia; caching those opaque responses would eat storage quota. Let the browser cache them.
+  if (url.origin !== self.location.origin || url.pathname.startsWith("/.netlify/")) return;
+
   event.respondWith(
-    fetch(event.request)
+    fetch(request)
       .then((response) => {
-        const copy = response.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+        if (response.ok) {
+          const copy = response.clone();
+          event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.put(request, copy)));
+        }
         return response;
       })
-      .catch(() => caches.match(event.request).then((cached) => cached || caches.match("/index.html"))),
+      .catch(async () => {
+        const cached = await caches.match(request);
+        if (cached) return cached;
+        if (request.mode === "navigate") return caches.match("/index.html");
+        return Response.error();
+      }),
   );
 });
 
