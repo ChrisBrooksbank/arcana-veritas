@@ -467,7 +467,16 @@ function drawReading(isDaily, styleOverride = state.styleId) {
   if (style.id === "real") {
     generateRealReading(reading);
   }
-  $("#readingResult").scrollIntoView({ behavior: "smooth", block: "start" });
+  scrollBelowHeader($("#readingResult"));
+}
+
+// scrollIntoView would tuck the result heading under the sticky header, which is tall on phones.
+function scrollBelowHeader(element) {
+  const header = $(".topbar");
+  const offset = (header?.offsetHeight || 0) + 8;
+  const top = element.getBoundingClientRect().top + window.scrollY - offset;
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  window.scrollTo({ top: Math.max(0, top), behavior: reduceMotion ? "auto" : "smooth" });
 }
 
 function drawUniqueCards(count, random) {
