@@ -7,7 +7,7 @@ const decks = [
     description:
       "Pamela Colman Smith's illustrated 1909 deck, using public-domain historical scan artwork.",
     source:
-      "Artwork: Pamela Colman Smith / A. E. Waite, 1909. Public-domain scans via Wikimedia Commons and Sacred Texts/Holly Voley provenance notes.",
+      "Artwork: Pamela Colman Smith / A. E. Waite, 1909. Public-domain scans from Wikimedia Commons (Sacred Texts/Holly Voley provenance), hosted with the app.",
     artist: "Pamela Colman Smith",
     year: "1909",
     license: "Public domain in the US and UK; verify jurisdiction for reuse.",
@@ -586,9 +586,9 @@ function renderAiReadingPanel(reading) {
   `;
 }
 
-function renderCard(card, deckId = state.deckId, reversed = false, interactive = false) {
+function renderCard(card, deckId = state.deckId, reversed = false, interactive = false, thumbnail = false) {
   const palette = getCardPalette(card, deckId);
-  const imageUrl = getHistoricalImageUrl(card, deckId);
+  const imageUrl = getHistoricalImageUrl(card, deckId, thumbnail);
   return `
     <article class="tarot-card ${reversed ? "reversed" : ""}" data-card-id="${card.id}" data-deck="${deckId}" data-arcana="${card.arcana}" data-suit="${card.suitId || "major"}" style="--card-tone: ${palette.tone}; --card-accent: ${palette.accent}; --card-ink: ${palette.ink};"${
       interactive ? ` role="button" tabindex="0" aria-label="Open ${escapeHtml(card.name)} details"` : ""
@@ -596,7 +596,7 @@ function renderCard(card, deckId = state.deckId, reversed = false, interactive =
       <div class="card-art ${imageUrl ? "has-historical-scan" : ""}">
         ${
           imageUrl
-            ? `<img class="historical-card-image" src="${escapeHtml(imageUrl)}" alt="${escapeHtml(card.name)} historical tarot scan" loading="lazy" decoding="async" referrerpolicy="no-referrer" onload="markHistoricalImageLoaded(this)" onerror="markHistoricalImageFailed(this)" />`
+            ? `<img class="historical-card-image" src="${escapeHtml(imageUrl)}" alt="${escapeHtml(card.name)} historical tarot scan" loading="lazy" decoding="async" onload="markHistoricalImageLoaded(this)" onerror="markHistoricalImageFailed(this)" />`
             : ""
         }
         <div class="card-art-inner">
@@ -623,67 +623,10 @@ function renderCard(card, deckId = state.deckId, reversed = false, interactive =
   `;
 }
 
-function getHistoricalImageUrl(card, deckId) {
-  const fileName = deckId === DEFAULT_DECK_ID ? getRwsCommonsFileName(card) : "";
-  if (!fileName) return "";
-  return `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(fileName)}?width=700`;
-}
-
-function getRwsCommonsFileName(card) {
-  if (card.arcana === "major") {
-    const majorFileNames = {
-      fool: "RWS Tarot 00 Fool.jpg",
-      magician: "RWS Tarot 01 Magician.jpg",
-      priestess: "RWS Tarot 02 High Priestess.jpg",
-      empress: "RWS Tarot 03 Empress.jpg",
-      emperor: "RWS Tarot 04 Emperor.jpg",
-      hierophant: "RWS Tarot 05 Hierophant.jpg",
-      lovers: "RWS Tarot 06 Lovers.jpg",
-      chariot: "RWS Tarot 07 Chariot.jpg",
-      strength: "RWS Tarot 08 Strength.jpg",
-      hermit: "RWS Tarot 09 Hermit.jpg",
-      wheel: "RWS Tarot 10 Wheel of Fortune.jpg",
-      justice: "RWS Tarot 11 Justice.jpg",
-      hanged: "RWS Tarot 12 Hanged Man.jpg",
-      death: "RWS Tarot 13 Death.jpg",
-      temperance: "RWS Tarot 14 Temperance.jpg",
-      devil: "RWS Tarot 15 Devil.jpg",
-      tower: "RWS Tarot 16 Tower.jpg",
-      star: "RWS Tarot 17 Star.jpg",
-      moon: "RWS Tarot 18 Moon.jpg",
-      sun: "RWS Tarot 19 Sun.jpg",
-      judgement: "RWS Tarot 20 Judgement.jpg",
-      world: "RWS Tarot 21 World.jpg",
-    };
-    return majorFileNames[card.id] || "";
-  }
-
-  const rankFileNumbers = {
-    ace: "01",
-    two: "02",
-    three: "03",
-    four: "04",
-    five: "05",
-    six: "06",
-    seven: "07",
-    eight: "08",
-    nine: "09",
-    ten: "10",
-    page: "11",
-    knight: "12",
-    queen: "13",
-    king: "14",
-  };
-  const suitPrefixes = {
-    wands: "Wands",
-    cups: "Cups",
-    swords: "Swords",
-    pentacles: "Pents",
-  };
-  const [rankId] = card.id.split("-");
-  const prefix = suitPrefixes[card.suitId];
-  const number = rankFileNumbers[rankId];
-  return prefix && number ? `${prefix}${number}.jpg` : "";
+// Scans are self-hosted: Wikimedia rate-limits (HTTP 429) when the library asks for all 78 at once.
+function getHistoricalImageUrl(card, deckId, thumbnail = false) {
+  if (deckId !== DEFAULT_DECK_ID) return "";
+  return `/cards/rws/${thumbnail ? "thumbs/" : ""}${card.id}.jpg`;
 }
 
 function shortCardTitle(name) {
@@ -814,7 +757,7 @@ function renderLibrary() {
     .map(
       (card) => `
       <button class="library-card" data-card-id="${card.id}" aria-label="${escapeHtml(card.name)}">
-        ${renderCard(card)}
+        ${renderCard(card, state.deckId, false, false, true)}
       </button>
     `,
     )
