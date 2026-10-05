@@ -1337,3 +1337,18 @@ textarea {
     translate: 0 -8px;
   }
 }
+
+:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 3px;
+}
+
+.drawn-card .tarot-card[role="button"] {
+  cursor: pointer;
+}
+
+.primary-button:disabled,
+.secondary-button:disabled {
+  cursor: progress;
+  opacity: 0.6;
+}

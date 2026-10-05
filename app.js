@@ -392,6 +392,14 @@ function bindEvents() {
   $("#cardSearch").addEventListener("input", renderLibrary);
   $("#arcanaFilter").addEventListener("change", renderLibrary);
   $("#dialogClose").addEventListener("click", () => $("#cardDialog").close());
+  $("#cardDialog").addEventListener("click", (event) => {
+    // Clicks on the dialog element itself land on its padding or the backdrop; only close for the backdrop.
+    if (event.target !== event.currentTarget) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    const inside =
+      event.clientX >= rect.left && event.clientX <= rect.right && event.clientY >= rect.top && event.clientY <= rect.bottom;
+    if (!inside) event.currentTarget.close();
+  });
   $("#exportJournalButton").addEventListener("click", exportJournal);
   $("#importJournalInput").addEventListener("change", importJournal);
   $("#clearJournalButton").addEventListener("click", clearJournal);
@@ -405,7 +413,13 @@ function bindEvents() {
 function showView(name) {
   const id = name === "home" ? "homeView" : `${name}View`;
   $$(".view").forEach((view) => view.classList.toggle("is-active", view.id === id));
-  $$(".nav-tab").forEach((tab) => tab.classList.toggle("is-active", tab.dataset.nav === name));
+  $$(".nav-tab").forEach((tab) => {
+    const active = tab.dataset.nav === name;
+    tab.classList.toggle("is-active", active);
+    if (active) tab.setAttribute("aria-current", "page");
+    else tab.removeAttribute("aria-current");
+  });
+  window.scrollTo({ top: 0 });
 }
 
 function setPreference(key, value, storageKey) {
@@ -518,9 +532,15 @@ function renderReading(reading) {
       <button class="primary-button" type="submit">Save to journal</button>
     </form>
   `;
-  $$(".drawn-card .tarot-card").forEach((el) =>
-    el.addEventListener("click", () => openCard(cards.find((card) => card.id === el.dataset.cardId))),
-  );
+  $$(".drawn-card .tarot-card").forEach((el) => {
+    const open = () => openCard(cards.find((card) => card.id === el.dataset.cardId));
+    el.addEventListener("click", open);
+    el.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      open();
+    });
+  });
   $$("[data-learn-card]").forEach((button) =>
     button.addEventListener("click", () => openCard(cards.find((card) => card.id === button.dataset.learnCard))),
   );
@@ -533,7 +553,7 @@ function renderDrawnCard(entry, deckId, styleId) {
   return `
     <article class="drawn-card">
       <span class="position-label">${escapeHtml(entry.position)} · ${reversed ? "Reversed" : "Upright"}</span>
-      ${renderCard(card, deckId, reversed)}
+      ${renderCard(card, deckId, reversed, true)}
       <p class="interpretation">${escapeHtml(interpret(card, entry.position, styleId, reversed))}</p>
       <button class="secondary-button" data-learn-card="${card.id}">Learn this card</button>
     </article>
@@ -557,11 +577,13 @@ function renderAiReadingPanel(reading) {
   `;
 }
 
-function renderCard(card, deckId = state.deckId, reversed = false) {
+function renderCard(card, deckId = state.deckId, reversed = false, interactive = false) {
   const palette = getCardPalette(card, deckId);
   const imageUrl = getHistoricalImageUrl(card, deckId);
   return `
-    <article class="tarot-card ${reversed ? "reversed" : ""}" data-card-id="${card.id}" data-deck="${deckId}" data-arcana="${card.arcana}" data-suit="${card.suitId || "major"}" style="--card-tone: ${palette.tone}; --card-accent: ${palette.accent}; --card-ink: ${palette.ink};" tabindex="0">
+    <article class="tarot-card ${reversed ? "reversed" : ""}" data-card-id="${card.id}" data-deck="${deckId}" data-arcana="${card.arcana}" data-suit="${card.suitId || "major"}" style="--card-tone: ${palette.tone}; --card-accent: ${palette.accent}; --card-ink: ${palette.ink};"${
+      interactive ? ` role="button" tabindex="0" aria-label="Open ${escapeHtml(card.name)} details"` : ""
+    }>
       <div class="card-art ${imageUrl ? "has-historical-scan" : ""}">
         ${
           imageUrl
@@ -782,7 +804,7 @@ function renderLibrary() {
   $("#cardGrid").innerHTML = filtered
     .map(
       (card) => `
-      <button class="library-card" data-card-id="${card.id}">
+      <button class="library-card" data-card-id="${card.id}" aria-label="${escapeHtml(card.name)}">
         ${renderCard(card)}
       </button>
     `,
@@ -810,7 +832,7 @@ function openCard(card) {
       </div>
     </div>
   `;
-  $("#cardDialog").showModal();
+  if (!$("#cardDialog").open) $("#cardDialog").showModal();
 }
 
 function buildDeepSymbol(card) {
@@ -1200,9 +1222,11 @@ async function setupPwa() {
   };
 
   if ("serviceWorker" in navigator) {
+    // The first install claims the page too; only reload when an existing worker is being replaced.
+    const hadController = Boolean(navigator.serviceWorker.controller);
     let refreshing = false;
     navigator.serviceWorker.addEventListener("controllerchange", () => {
-      if (refreshing) return;
+      if (refreshing || !hadController) return;
       refreshing = true;
       window.location.reload();
     });
