@@ -381,7 +381,10 @@ function bindEvents() {
   });
   $("#drawButton").addEventListener("click", () => drawReading(false));
   $("#dailyButton").addEventListener("click", () => drawReading(true));
-  $("#realReadingButton").addEventListener("click", () => drawReading(false, "real"));
+  $("#realReadingButton").addEventListener("click", (event) => {
+    if (event.currentTarget.disabled) return;
+    drawReading(false, "real");
+  });
   $("#learnDailyButton").addEventListener("click", () => {
     showView("home");
     drawReading(true);
@@ -430,7 +433,8 @@ function drawReading(isDaily, styleOverride = state.styleId) {
   const deck = getDeck();
   const style = getStyle(styleOverride);
   const question = isDaily ? "Card of the day" : $("#questionInput").value.trim();
-  const drawn = drawUniqueCards(spread.positions.length, isDaily);
+  const random = isDaily ? seededRandom(dayKey()) : secureRandom;
+  const drawn = drawUniqueCards(spread.positions.length, random);
   const reading = {
     id: createId(),
     createdAt: new Date().toISOString(),
@@ -441,7 +445,7 @@ function drawReading(isDaily, styleOverride = state.styleId) {
     cards: drawn.map((card, index) => ({
       cardId: card.id,
       position: spread.positions[index],
-      orientation: state.reversals && Math.random() > 0.72 ? "reversed" : "upright",
+      orientation: state.reversals && random() > 0.72 ? "reversed" : "upright",
     })),
   };
   state.currentReading = reading;
@@ -452,21 +456,36 @@ function drawReading(isDaily, styleOverride = state.styleId) {
   $("#readingResult").scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
-function drawUniqueCards(count, stable) {
+function drawUniqueCards(count, random) {
   const source = [...cards];
   const result = [];
-  let seed = stable ? daySeed() : Math.floor(Math.random() * 999999);
   while (result.length < count && source.length) {
-    seed = (seed * 9301 + 49297) % 233280;
-    const index = seed % source.length;
+    const index = Math.floor(random() * source.length);
     result.push(source.splice(index, 1)[0]);
   }
   return result;
 }
 
-function daySeed() {
-  const today = new Date();
-  return Number(`${today.getFullYear()}${today.getMonth() + 1}${today.getDate()}`);
+function secureRandom() {
+  const [value] = window.crypto.getRandomValues(new Uint32Array(1));
+  return value / 2 ** 32;
+}
+
+// Zero-padded local date, so 1 Nov and 11 Jan no longer share a seed.
+function dayKey(date = new Date()) {
+  return [date.getFullYear(), date.getMonth() + 1, date.getDate()].map((part) => String(part).padStart(2, "0")).join("-");
+}
+
+// mulberry32 seeded from a string hash: the card of the day stays stable for the whole day, orientation included.
+function seededRandom(key) {
+  let seed = 2166136261;
+  for (const char of key) seed = Math.imul(seed ^ char.charCodeAt(0), 16777619);
+  return () => {
+    seed = (seed + 0x6d2b79f5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
 }
 
 function renderReading(reading) {
@@ -806,13 +825,19 @@ function getDeckNote() {
 function saveCurrentReading(event) {
   event.preventDefault();
   if (!state.currentReading) return;
+  const { aiStatus, aiError, ...reading } = state.currentReading;
   const saved = {
-    ...state.currentReading,
+    ...reading,
     category: $("#journalCategory").value,
     mood: $("#journalMood").value,
     note: $("#journalNote").value.trim(),
   };
-  state.journal.unshift(saved);
+  const existingIndex = state.journal.findIndex((entry) => entry.id === saved.id);
+  if (existingIndex >= 0) {
+    state.journal[existingIndex] = saved;
+  } else {
+    state.journal.unshift(saved);
+  }
   persistJournal();
   renderJournal();
   showView("journal");
@@ -1049,6 +1074,7 @@ function clearAiSettings() {
 async function generateRealReading(reading) {
   reading.aiStatus = "loading";
   renderAiReadingOnly(reading);
+  setRealReadingBusy(true);
   try {
     const prompt = buildAiReadingPrompt(reading);
     const text = state.ai.provider === "claude" ? await callClaude(prompt) : await callOpenAi(prompt);
@@ -1058,10 +1084,24 @@ async function generateRealReading(reading) {
     reading.aiStatus = "error";
     reading.aiError = error.message || "The provider returned an error.";
   }
-  if (state.currentReading?.id === reading.id) {
-    state.currentReading = reading;
+  setRealReadingBusy(false);
+  const saved = state.journal.find((entry) => entry.id === reading.id);
+  if (saved && reading.aiText) {
+    saved.aiText = reading.aiText;
+    persistJournal();
+    renderJournal();
   }
-  renderAiReadingOnly(reading);
+  // A newer reading may be on screen by now; never paint this answer into its panel.
+  if (state.currentReading?.id === reading.id) {
+    renderAiReadingOnly(reading);
+  }
+}
+
+function setRealReadingBusy(busy) {
+  const button = $("#realReadingButton");
+  if (!button) return;
+  button.disabled = busy;
+  button.textContent = busy ? "Reading..." : "Real reading";
 }
 
 function renderAiReadingOnly(reading) {
