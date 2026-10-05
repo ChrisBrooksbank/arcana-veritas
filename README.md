@@ -142,7 +142,7 @@ Arcana Veritas treats tarot as a symbolic and spiritual practice. It is **not** 
 
 ## Artwork
 
-The Rider-Waite-Smith deck uses public-domain historical scans from the Pamela Colman Smith / A. E. Waite 1909 tarot, loaded through Wikimedia Commons `Special:FilePath` URLs. If a scan can't load, the app falls back to generated study artwork so no card face is ever blank.
+The Rider-Waite-Smith deck uses public-domain historical scans of the Pamela Colman Smith / A. E. Waite 1909 tarot, sourced from [Wikimedia Commons](https://commons.wikimedia.org/wiki/Category:Rider-Waite_tarot_deck) and hosted with the app in [`cards/rws/`](./cards/rws), with small thumbnails for the card library. Hosting them locally keeps the library fast, avoids Wikimedia's rate limits, and lets cards you've viewed work offline. If a scan can't load, the app falls back to generated study artwork so no card face is ever blank.
 
 ## Privacy
 

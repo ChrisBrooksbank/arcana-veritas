@@ -1,4 +1,4 @@
-const CACHE_NAME = "arcana-veritas-v12";
+const CACHE_NAME = "arcana-veritas-v13";
 const APP_SHELL = [
   "/",
   "/index.html",
@@ -29,7 +29,6 @@ self.addEventListener("fetch", (event) => {
   const { request } = event;
   if (request.method !== "GET") return;
   const url = new URL(request.url);
-  // Card scans live on Wikimedia; caching those opaque responses would eat storage quota. Let the browser cache them.
   if (url.origin !== self.location.origin || url.pathname.startsWith("/.netlify/")) return;
 
   event.respondWith(
