@@ -244,15 +244,97 @@ const cards = [
 
 const categories = ["self", "relationships", "work", "creativity", "money", "wellbeing", "other"];
 const moods = ["clear", "curious", "hopeful", "tender", "uncertain", "charged", "grounded"];
+const storage = createSafeStorage("localStorage");
+const sessionStore = createSafeStorage("sessionStorage");
 const state = {
   deckId: DEFAULT_DECK_ID,
-  spreadId: localStorage.getItem("av.spread") || "one",
-  styleId: localStorage.getItem("av.style") || "traditional",
-  reversals: localStorage.getItem("av.reversals") === "true",
+  spreadId: storage.getItem("av.spread") || "one",
+  styleId: storage.getItem("av.style") || "traditional",
+  reversals: storage.getItem("av.reversals") === "true",
   ai: loadAiSettings(),
   currentReading: null,
-  journal: JSON.parse(localStorage.getItem("av.journal") || "[]"),
+  journal: loadJournal(),
 };
+
+// Storage can be unavailable (private modes, blocked site data) or full; the app should keep working in memory.
+function createSafeStorage(name) {
+  let store = null;
+  try {
+    store = window[name];
+    store.getItem("av.probe");
+  } catch {
+    store = null;
+  }
+  return {
+    getItem(key) {
+      try {
+        return store ? store.getItem(key) : null;
+      } catch {
+        return null;
+      }
+    },
+    setItem(key, value) {
+      try {
+        store?.setItem(key, value);
+        return true;
+      } catch (error) {
+        console.warn(`Could not save ${key}`, error);
+        return false;
+      }
+    },
+    removeItem(key) {
+      try {
+        store?.removeItem(key);
+      } catch {
+        // Nothing to remove when storage is unavailable.
+      }
+    },
+  };
+}
+
+function loadJournal() {
+  try {
+    const parsed = JSON.parse(storage.getItem("av.journal") || "[]");
+    return Array.isArray(parsed) ? parsed.map(normalizeJournalEntry).filter(Boolean) : [];
+  } catch {
+    console.warn("Saved journal could not be read; starting with an empty journal.");
+    return [];
+  }
+}
+
+function normalizeJournalEntry(entry) {
+  if (!entry || typeof entry !== "object" || !Array.isArray(entry.cards)) return null;
+  const entryCards = entry.cards
+    .filter((cardEntry) => cardEntry && cards.some((card) => card.id === cardEntry.cardId))
+    .map((cardEntry) => ({
+      cardId: cardEntry.cardId,
+      position: String(cardEntry.position || "Card"),
+      orientation: cardEntry.orientation === "reversed" ? "reversed" : "upright",
+    }));
+  if (!entryCards.length) return null;
+  const createdAt = Number.isNaN(Date.parse(entry.createdAt)) ? new Date().toISOString() : entry.createdAt;
+  return {
+    ...entry,
+    id: typeof entry.id === "string" && entry.id ? entry.id : createId(),
+    createdAt,
+    deckId: getDeck(entry.deckId).id,
+    spreadId: spreads.some((spread) => spread.id === entry.spreadId) ? entry.spreadId : "one",
+    styleId: getStyle(entry.styleId).id,
+    category: categories.includes(entry.category) ? entry.category : "self",
+    mood: moods.includes(entry.mood) ? entry.mood : "clear",
+    question: typeof entry.question === "string" ? entry.question : "",
+    note: typeof entry.note === "string" ? entry.note : "",
+    aiText: typeof entry.aiText === "string" ? entry.aiText : undefined,
+    cards: entryCards,
+  };
+}
+
+function createId() {
+  if (window.crypto?.randomUUID) return window.crypto.randomUUID();
+  const bytes = new Uint8Array(16);
+  window.crypto.getRandomValues(bytes);
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => Array.from(document.querySelectorAll(selector));
@@ -270,7 +352,11 @@ function populateControls() {
   $("#spreadSelect").innerHTML = spreads.map((s) => `<option value="${s.id}">${s.name}</option>`).join("");
   if (!styles.some((style) => style.id === state.styleId)) {
     state.styleId = "traditional";
-    localStorage.setItem("av.style", state.styleId);
+    storage.setItem("av.style", state.styleId);
+  }
+  if (!spreads.some((spread) => spread.id === state.spreadId)) {
+    state.spreadId = spreads[0].id;
+    storage.setItem("av.spread", state.spreadId);
   }
   $("#spreadSelect").value = state.spreadId;
   $("#reversalToggle").checked = state.reversals;
@@ -291,7 +377,7 @@ function bindEvents() {
   );
   $("#reversalToggle").addEventListener("change", (event) => {
     state.reversals = event.target.checked;
-    localStorage.setItem("av.reversals", String(state.reversals));
+    storage.setItem("av.reversals", String(state.reversals));
   });
   $("#drawButton").addEventListener("click", () => drawReading(false));
   $("#dailyButton").addEventListener("click", () => drawReading(true));
@@ -321,7 +407,7 @@ function showView(name) {
 
 function setPreference(key, value, storageKey) {
   state[key] = value;
-  localStorage.setItem(storageKey, value);
+  storage.setItem(storageKey, value);
   if (key === "styleId") renderStyleModes();
 }
 
@@ -346,7 +432,7 @@ function drawReading(isDaily, styleOverride = state.styleId) {
   const question = isDaily ? "Card of the day" : $("#questionInput").value.trim();
   const drawn = drawUniqueCards(spread.positions.length, isDaily);
   const reading = {
-    id: crypto.randomUUID(),
+    id: createId(),
     createdAt: new Date().toISOString(),
     deckId: deck.id,
     spreadId: spread.id,
@@ -745,7 +831,7 @@ function renderJournal() {
   }
   $("#journalList").innerHTML = filtered
     .map((entry) => {
-      const spread = spreads.find((s) => s.id === entry.spreadId);
+      const spread = spreads.find((s) => s.id === entry.spreadId) || spreads[0];
       const deck = getDeck(entry.deckId);
       const style = getStyle(entry.styleId);
       return `
@@ -757,6 +843,7 @@ function renderJournal() {
             ${entry.cards
               .map((cardEntry) => {
                 const card = cards.find((item) => item.id === cardEntry.cardId);
+                if (!card) return "";
                 return `<span class="mini-card">${escapeHtml(cardEntry.position)}: ${escapeHtml(card.name)}</span>`;
               })
               .join("")}
@@ -831,9 +918,15 @@ async function importJournal(event) {
   try {
     const imported = JSON.parse(await file.text());
     if (!Array.isArray(imported)) throw new Error("Journal export must be an array.");
-    state.journal = [...imported, ...state.journal];
+    const valid = imported.map(normalizeJournalEntry).filter(Boolean);
+    if (imported.length && !valid.length) throw new Error("No readable journal entries were found in that file.");
+    const existingIds = new Set(state.journal.map((entry) => entry.id));
+    const fresh = valid.filter((entry) => !existingIds.has(entry.id));
+    state.journal = [...fresh, ...state.journal].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
     persistJournal();
     renderJournal();
+    const skipped = imported.length - fresh.length;
+    alert(`Imported ${fresh.length} ${fresh.length === 1 ? "reading" : "readings"}${skipped ? ` (${skipped} duplicate or unreadable skipped)` : ""}.`);
   } catch (error) {
     alert(`Import failed: ${error.message}`);
   } finally {
@@ -849,7 +942,9 @@ function clearJournal() {
 }
 
 function persistJournal() {
-  localStorage.setItem("av.journal", JSON.stringify(state.journal));
+  if (!storage.setItem("av.journal", JSON.stringify(state.journal))) {
+    alert("This reading is kept for now, but the device would not save the journal. Export it to keep a copy.");
+  }
 }
 
 function getDeck(deckId = state.deckId) {
@@ -870,13 +965,14 @@ function hasAiKey() {
 }
 
 function loadAiSettings() {
-  const remember = localStorage.getItem("av.ai.remember") === "true";
-  const provider = localStorage.getItem("av.ai.provider") || "openai";
+  const remember = storage.getItem("av.ai.remember") === "true";
+  const storedProvider = storage.getItem("av.ai.provider");
+  const provider = aiProviders[storedProvider] ? storedProvider : "openai";
   const model =
-    localStorage.getItem("av.ai.model") ||
+    storage.getItem("av.ai.model") ||
     aiProviders[provider]?.defaultModel ||
     aiProviders.openai.defaultModel;
-  const apiKey = remember ? localStorage.getItem("av.ai.key") || "" : sessionStorage.getItem("av.ai.key") || "";
+  const apiKey = remember ? storage.getItem("av.ai.key") || "" : sessionStore.getItem("av.ai.key") || "";
   return { provider, model, apiKey, remember };
 }
 
@@ -913,15 +1009,15 @@ function saveAiSettings(event) {
   const apiKey = typedKey || state.ai.apiKey || "";
 
   state.ai = { provider, model, apiKey, remember };
-  localStorage.setItem("av.ai.provider", provider);
-  localStorage.setItem("av.ai.model", model);
-  localStorage.setItem("av.ai.remember", String(remember));
+  storage.setItem("av.ai.provider", provider);
+  storage.setItem("av.ai.model", model);
+  storage.setItem("av.ai.remember", String(remember));
   if (remember && apiKey) {
-    localStorage.setItem("av.ai.key", apiKey);
-    sessionStorage.removeItem("av.ai.key");
+    storage.setItem("av.ai.key", apiKey);
+    sessionStore.removeItem("av.ai.key");
   } else {
-    localStorage.removeItem("av.ai.key");
-    if (apiKey) sessionStorage.setItem("av.ai.key", apiKey);
+    storage.removeItem("av.ai.key");
+    if (apiKey) sessionStore.setItem("av.ai.key", apiKey);
   }
 
   populateControls();
@@ -937,14 +1033,14 @@ function clearAiSettings() {
     apiKey: "",
     remember: false,
   };
-  localStorage.removeItem("av.ai.provider");
-  localStorage.removeItem("av.ai.model");
-  localStorage.removeItem("av.ai.remember");
-  localStorage.removeItem("av.ai.key");
-  sessionStorage.removeItem("av.ai.key");
+  storage.removeItem("av.ai.provider");
+  storage.removeItem("av.ai.model");
+  storage.removeItem("av.ai.remember");
+  storage.removeItem("av.ai.key");
+  sessionStore.removeItem("av.ai.key");
   if (state.styleId === "real") {
     state.styleId = "traditional";
-    localStorage.setItem("av.style", state.styleId);
+    storage.setItem("av.style", state.styleId);
   }
   populateControls();
   renderAiSettingsStatus("AI settings cleared.");
