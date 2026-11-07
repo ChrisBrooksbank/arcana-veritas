@@ -1,3 +1,7 @@
+<!-- hub-link -->
+> Part of [Chris's app hub](https://chrisbrooksbank-hub.netlify.app) - a directory of all my deployed apps.
+<!-- /hub-link -->
+
 <p align="center">
   <img src="docs/media/hero.jpg" alt="Arcana Veritas: The Moon, The Star and The Sun from the 1909 Rider-Waite-Smith deck, fanned out by candlelight" width="100%" />
 </p>
